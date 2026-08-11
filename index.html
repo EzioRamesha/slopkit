@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>தமிழ் — PS5 Jailbreak Host</title>
+<title>PS5-JB — PS5 Jailbreak Host</title>
 <link rel="preload" href="ui/ps5-orbital-hero.png" as="image">
 <link rel="preload" href="ui/webkit-kernel-flux.png" as="image">
 <link rel="preload" href="ui/horizon-cyber-bg.png" as="image">
@@ -193,7 +193,7 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
-    max-width: min(320px, 78vw);
+    max-width: min(380px, 88vw);
     padding: 14px 18px 12px;
     isolation: isolate;
   }
@@ -229,11 +229,11 @@
     position: relative;
     z-index: 1;
     margin: 0;
-    font-family: "Noto Sans Tamil", "Latha", "Tamil MN", sans-serif;
+    font-family: Orbitron, system-ui, sans-serif;
     font-weight: 800;
-    font-size: clamp(42px, 11vw, 72px);
-    letter-spacing: .08em;
-    line-height: 1.2;
+    font-size: clamp(36px, 9vw, 64px);
+    letter-spacing: .12em;
+    line-height: 1.15;
     color: transparent;
     background: linear-gradient(
       105deg,
@@ -694,7 +694,7 @@
     <section class="hero">
       <div class="eyebrow">PS5 jailbreak host · FW 9.00–12.00</div>
       <div class="brand-lock">
-        <h1 class="brand">தமிழ்</h1>
+        <h1 class="brand">PS5-JB</h1>
         <div class="brand-sub">YR.2060 // <b>HOST</b></div>
       </div>
       <p class="lede">
@@ -921,7 +921,7 @@
 
   /* ---- code running overlay ---- */
   var codeLines = [
-    '<span class="amber">// தமிழ் · PS5 WebKit host</span>',
+    '<span class="amber">// PS5-JB · WebKit host</span>',
     'fw = detect_firmware();',
     'if (fw < 9.00 || fw > 12.00) abort();',
     '<span class="mag">primitive</span> = establishPrimitive();',
