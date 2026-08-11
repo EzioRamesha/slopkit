@@ -123,9 +123,18 @@
     font-family: "Noto Sans Tamil", "Latha", "Tamil MN", sans-serif;
     font-weight: 800;
     font-size: clamp(28px, 7vw, 40px);
-    letter-spacing: .04em;
-    color: #eaf7ff;
-    text-shadow: 0 0 18px rgba(126,231,255,.35);
+    letter-spacing: .06em;
+    color: transparent;
+    background: linear-gradient(115deg, #eafcff, var(--ice) 40%, var(--amber) 70%, var(--signal));
+    background-size: 180% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    filter: drop-shadow(0 0 14px rgba(126,231,255,.4));
+    animation: brandShine 5s ease-in-out infinite;
+  }
+  @keyframes brandShine {
+    0%,100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
   }
   #dt {
     font: 700 12px Orbitron, system-ui, sans-serif;
@@ -370,10 +379,7 @@
 <div class="beam" aria-hidden="true"></div>
 <div id="deck">
   <div class="brand-row">
-    <h1 class="brand">
-      <img src="../ui/thamily-logo.png" alt="THAMILY" width="280" height="157"
-           onerror="this.outerHTML='<span>THAMILY</span>'">
-    </h1>
+    <h1 class="brand">தமிழ்</h1>
     <button type="button" id="dt" title="Toggle deep diagnostics">DIAG</button>
   </div>
   <div id="reactor" class="reactor" aria-hidden="true">
@@ -2106,7 +2112,7 @@ function lastRunText() {
 
             link("?trigger=none", "no -- go back to the negative control",
                 "extra");
-            link("../index.html", "back to thamily", "extra");
+            link("../index.html", "back to தமிழ்", "extra");
         }
         summaryEl.textContent = lastRunText()
             + "\n\nSAME-process re-arm checks, and their limit stated honestly: " + "this page records the first socket fd it is given and the " + "process's uid, and can therefore notice that THIS WebProcess has " + "already run";
