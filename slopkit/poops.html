@@ -670,8 +670,6 @@ const payloadMenuEl = document.getElementById("payloadMenu");
 const rowByKey = new Map();
 let payloadSendBusy = false;
 const PAYLOAD_PORT = 9021;
-const PAYLOAD_CONNECT_ATTEMPTS = 20;
-const PAYLOAD_CONNECT_GAP_MS = 150;
 const PAYLOAD_BUFFER_SIZE = 0x10000;
 const PAYLOAD_MAX_SIZE = 0x400000;
 let payloadSendStore = null;
@@ -769,70 +767,33 @@ async function sendPayloadToElfldr(name) {
     let sent = 0;
     let failure = null;
     let closeWarning = null;
-    const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms));
     try {
-        let lastConnectError = null;
-        for (let attempt = 1; attempt <= PAYLOAD_CONNECT_ATTEMPTS; ++attempt) {
-            let result = await sys(SYS_SOCKET, 2, 1, 0);
-            if (result.failed || result.s32 < 0)
-                throw payloadSyscallError("socket", result);
-            fd = result.s32;
-            track(fd);
+        let result = await sys(SYS_SOCKET, 2, 1, 0);
+        if (result.failed || result.s32 < 0)
+            throw payloadSyscallError("socket", result);
+        fd = result.s32;
+        track(fd);
 
-            result = await sys(SYS_SETSOCKOPT, fd, 0xffff, 0x0800,
-                payloadSocketOptionStore.ptr, 4);
-            if (result.failed || result.s32 !== 0)
-                throw payloadSyscallError("setsockopt SO_NOSIGPIPE", result);
+        result = await sys(SYS_SETSOCKOPT, fd, 0xffff, 0x0800,
+            payloadSocketOptionStore.ptr, 4);
+        if (result.failed || result.s32 !== 0)
+            throw payloadSyscallError("setsockopt SO_NOSIGPIPE", result);
 
-            result = await sys(SYS_SETSOCKOPT, fd, 0xffff, 0x1005,
-                payloadSendTimeoutStore.ptr, 0x10);
-            if (result.failed || result.s32 !== 0)
-                throw payloadSyscallError("setsockopt SO_SNDTIMEO", result);
+        result = await sys(SYS_SETSOCKOPT, fd, 0xffff, 0x1005,
+            payloadSendTimeoutStore.ptr, 0x10);
+        if (result.failed || result.s32 !== 0)
+            throw payloadSyscallError("setsockopt SO_SNDTIMEO", result);
 
-            result = await sys(SYS_CONNECT, fd, payloadSockaddrStore.ptr, 0x10);
-            if (!result.failed && result.s32 === 0) {
-                if (attempt > 1)
-                    flushMark("ELF-CONNECT-OK", "attempt=" + attempt
-                        + "-of-" + PAYLOAD_CONNECT_ATTEMPTS
-                        + "-port=" + PAYLOAD_PORT);
-                lastConnectError = null;
-                break;
-            }
-
-            lastConnectError = payloadSyscallError(
-                "connect to 127.0.0.1:" + PAYLOAD_PORT
-                    + " (attempt " + attempt + "/" + PAYLOAD_CONNECT_ATTEMPTS + ")",
-                result);
-            flushMark("ELF-CONNECT-RETRY", "attempt=" + attempt
-                + "-of-" + PAYLOAD_CONNECT_ATTEMPTS
-                + "-why=" + clean(lastConnectError.message));
-
-            try {
-                const closeRes = await sys(SYS_CLOSE, fd);
-                if (!closeRes.failed && closeRes.s32 === 0)
-                    untrack(fd);
-                else
-                    throw payloadSyscallError("close after connect miss", closeRes);
-            } catch (closeErr) {
-                payloadSenderBlocked = "payload sending is blocked until reboot because "
-                    + "socket fd " + fd + " was not confirmed closed after a connect miss";
-                throw closeErr;
-            }
-            fd = -1;
-            if (attempt === PAYLOAD_CONNECT_ATTEMPTS)
-                throw lastConnectError;
-            await sleepMs(PAYLOAD_CONNECT_GAP_MS);
-        }
-        if (fd < 0)
-            throw lastConnectError || new Error("connect to 127.0.0.1:"
-                + PAYLOAD_PORT + " failed");
+        result = await sys(SYS_CONNECT, fd, payloadSockaddrStore.ptr, 0x10);
+        if (result.failed || result.s32 !== 0)
+            throw payloadSyscallError("connect to 127.0.0.1:9021", result);
 
         while (sent < bytes.length) {
             const blockSize = Math.min(PAYLOAD_BUFFER_SIZE, bytes.length - sent);
             payloadSendStore.u8.set(bytes.subarray(sent, sent + blockSize), 0);
             let blockSent = 0;
             while (blockSent < blockSize) {
-                let result = await sys(SYS_WRITE, fd,
+                result = await sys(SYS_WRITE, fd,
                     payloadSendStore.ptr.add32(blockSent), blockSize - blockSent);
                 if (result.failed || result.s32 <= 0)
                     throw payloadSyscallError("write at byte "
@@ -889,10 +850,6 @@ function payloadTileBaseClass(tile) {
 }
 
 async function sendPayloadInPlace(name, tile) {
-    if (payloadSenderBlocked) {
-        flushMark("ELF-SEND-SKIPPED", "blocked=" + clean(payloadSenderBlocked));
-        return false;
-    }
     if (payloadSendBusy) return false;
     payloadSendBusy = true;
     const tiles = payloadMenuEl.getElementsByTagName("a");
@@ -959,12 +916,10 @@ async function autoInjectPldmgr() {
     if (pldmgrAutoStarted) return;
     pldmgrAutoStarted = true;
     const tile = payloadMenuEl.querySelector('[data-name="pldmgr.elf"]');
-    const retry = document.getElementById("retryInject");
     setReactorState("inject");
     setStageChip("pldmgr", "on");
-    stage("INJECTING PLDMGR (waiting for :9021)", "");
-    flushMark("PLDMGR-AUTO-START", "name=pldmgr.elf-connectAttempts="
-        + PAYLOAD_CONNECT_ATTEMPTS);
+    stage("INJECTING PLDMGR", "");
+    flushMark("PLDMGR-AUTO-START", "name=pldmgr.elf");
     const ok = await sendPayloadInPlace("pldmgr.elf",
         tile || payloadMenuEl.getElementsByTagName("a")[0]);
     if (ok) {
@@ -974,28 +929,15 @@ async function autoInjectPldmgr() {
         stageEl.className = "ok";
         syncStageChips("pldmgr online", "ok");
         flushMark("PLDMGR-AUTO-OK", "name=pldmgr.elf");
+        const retry = document.getElementById("retryInject");
         if (retry) retry.className = "";
-    } else if (payloadSenderBlocked) {
-        setReactorState("bad");
-        setStageChip("pldmgr", "fail");
-        stageEl.textContent = "PLDMGR BLOCKED — REBOOT REQUIRED";
-        stageEl.className = "bad";
-        if (retry) {
-            retry.className = "";
-            retry.textContent = "REBOOT REQUIRED";
-            retry.disabled = true;
-        }
-        flushMark("PLDMGR-AUTO-BLOCKED", clean(payloadSenderBlocked));
     } else {
         setReactorState("inject-fail");
         setStageChip("pldmgr", "fail");
         stageEl.textContent = "PLDMGR INJECT FAILED — RETRY OR REBOOT";
         stageEl.className = "bad";
-        if (retry) {
-            retry.disabled = false;
-            retry.textContent = "RETRY PLDMGR INJECT";
-            retry.className = "on";
-        }
+        const retry = document.getElementById("retryInject");
+        if (retry) retry.className = "on";
         flushMark("PLDMGR-AUTO-FAIL", "name=pldmgr.elf");
     }
 }
@@ -1004,16 +946,6 @@ async function autoInjectPldmgr() {
     const retry = document.getElementById("retryInject");
     if (retry) {
         retry.onclick = function () {
-            if (payloadSenderBlocked) {
-                stageEl.textContent = "PLDMGR BLOCKED — REBOOT REQUIRED";
-                stageEl.className = "bad";
-                flushMark("PLDMGR-RETRY-DENIED", clean(payloadSenderBlocked));
-                return;
-            }
-            if (payloadSendBusy) {
-                flushMark("PLDMGR-RETRY-BUSY", "sender-still-busy");
-                return;
-            }
             pldmgrAutoStarted = false;
             retry.className = "";
             autoInjectPldmgr();
