@@ -3,8 +3,6 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PS5-JB</title>
-
 <script>(function () {
     var pending = [];
     window.__jbEarly = pending;
@@ -30,351 +28,50 @@
     });
 })();
 </script>
-
+<title>PS5-JB</title>
 <style>
-  :root {
-    --void: #070A0F;
-    --panel: #0E1520;
-    --ice: #7EE7FF;
-    --mist: #A8B4C4;
-    --signal: #3DFFB5;
-    --amber: #ffb347;
-    --alert: #FF5C7A;
-  }
-  * { box-sizing: border-box; }
-  html, body {
-    margin: 0; padding: 0; min-height: 100%;
-    background: var(--void); color: var(--mist);
-  }
-  body {
-    min-height: 100vh;
-    font: 15px/1.45 ui-monospace, Menlo, Consolas, monospace;
-    padding: 0;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: flex-start;
-    position: relative;
-    overflow-x: hidden;
-  }
-  /* Light CSS-only chrome — no multi-MB PNGs / CDN fonts on the JB page */
-  .field {
-    position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
-    background:
-      radial-gradient(ellipse 70% 50% at 72% 38%, rgba(126,231,255,.14), transparent 55%),
-      radial-gradient(ellipse 50% 40% at 20% 80%, rgba(61,255,181,.08), transparent 50%),
-      linear-gradient(160deg, #0a1018 0%, #070a0f 45%, #0c1520 100%);
-  }
-  .field::before {
-    content: "";
-    position: absolute; inset: 0;
-    background:
-      linear-gradient(90deg, rgba(5,7,12,.55) 0%, transparent 40%, rgba(5,7,12,.35) 100%);
-    opacity: 1;
-  }
-  .field::after {
-    content: "";
-    position: absolute; inset: 0;
-    background:
-      radial-gradient(ellipse 55% 40% at 50% 20%, rgba(155,232,255,.1), transparent 60%),
-      radial-gradient(ellipse 40% 30% at 78% 72%, rgba(93,255,194,.06), transparent 55%);
-  }
-  .scan {
-    position: fixed; inset: 0; pointer-events: none; z-index: 0;
-    background: repeating-linear-gradient(
-      to bottom, transparent 0, transparent 3px,
-      rgba(155,232,255,.03) 3px, rgba(155,232,255,.03) 4px);
-    opacity: .4;
-  }
-  .beam { display: none; }
-  #liveStrip {
-    width: 100%;
-    min-height: 3.2em;
-    padding: 12px 14px;
-    border-left: 2px solid rgba(155,232,255,.4);
-    background: linear-gradient(90deg, rgba(8,14,24,.78), rgba(8,14,24,.18));
-    font-size: 12px; line-height: 1.45; color: #b8c4d2;
-  }
-  #liveStrip .hot { color: var(--ice); }
-  #liveStrip .ok { color: var(--signal); }
-
-  #deck {
-    position: relative; z-index: 1;
-    width: min(720px, 94vw);
-    margin: 28px auto 40px;
-    display: flex; flex-direction: column; align-items: center; gap: 18px;
-  }
-  .brand-row {
-    width: 100%; display: flex; align-items: center; justify-content: space-between;
-    gap: 12px;
-  }
-  .brand {
-    margin: 0;
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    font-weight: 800;
-    font-size: clamp(22px, 5vw, 30px);
-    letter-spacing: .14em;
-    color: transparent;
-    background: linear-gradient(105deg, #eafcff, var(--ice) 40%, var(--amber) 70%, var(--signal));
-    background-size: 200% 100%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    filter: drop-shadow(0 0 12px rgba(126,231,255,.4));
-    animation: brandShine 4.5s ease-in-out infinite;
-  }
-  @keyframes brandShine {
-    0%,100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-  }
-  #dt {
-    font: 700 12px system-ui, -apple-system, "Segoe UI", sans-serif;
-    letter-spacing: .12em;
-    padding: 10px 14px; border-radius: 999px; cursor: pointer;
-    background: var(--panel); border: 1px solid rgba(126,231,255,.28); color: var(--ice);
-  }
-  #dt:focus { outline: none; box-shadow: 0 0 0 3px rgba(126,231,255,.35); }
-
-  .reactor {
-    width: min(220px, 48vw); height: min(220px, 48vw);
-    position: relative; display: grid; place-items: center;
-    margin: 8px 0 4px;
-  }
-  .reactor .ring {
-    position: absolute; inset: 0; border-radius: 50%;
-    border: 2px solid rgba(126,231,255,.25);
-    box-shadow: 0 0 22px rgba(126,231,255,.15);
-  }
-  .reactor .r2 {
-    inset: 12%;
-    border-color: rgba(61,255,181,.3);
-    border-top-color: var(--ice); border-right-color: transparent;
-    animation: spin 9s linear infinite;
-  }
-  .reactor .r3 {
-    inset: 26%;
-    border-color: rgba(126,231,255,.16);
-    border-bottom-color: var(--signal); border-left-color: transparent;
-    animation: spin 5.5s linear infinite reverse;
-  }
-  .reactor .core {
-    width: 36%; height: 36%; border-radius: 50%;
-    background: radial-gradient(circle at 35% 30%, #e8fbff, var(--ice) 45%, #1a6f88 100%);
-    box-shadow: 0 0 36px rgba(126,231,255,.5);
-    transition: background .25s ease, box-shadow .25s ease, transform .2s ease;
-  }
-  .reactor.pulse .core { transform: scale(1.08); }
-  .reactor.ok .core {
-    background: radial-gradient(circle at 35% 30%, #f0fff8, var(--signal) 50%, #0f6a48 100%);
-    box-shadow: 0 0 42px rgba(61,255,181,.55);
-  }
-  .reactor.ok .r2, .reactor.ok .r3 { animation-duration: 3s; }
-  .reactor.inject .core {
-    box-shadow: 0 0 50px rgba(126,231,255,.8), 0 0 90px rgba(61,255,181,.35);
-    animation: injectPulse .45s ease infinite alternate;
-  }
-  .reactor.inject-fail .core,
-  .reactor.bad .core {
-    background: radial-gradient(circle at 35% 30%, #ffe8ec, var(--alert) 50%, #6a1020 100%);
-    box-shadow: 0 0 42px rgba(255,92,122,.5);
-  }
-  .reactor.inject-fail .r2, .reactor.inject-fail .r3,
-  .reactor.bad .r2, .reactor.bad .r3 {
-    animation: stutter .35s steps(2) infinite;
-    border-color: rgba(255,92,122,.45);
-  }
-  .shockwave {
-    position: absolute; inset: 8%; border-radius: 50%;
-    border: 2px solid rgba(61,255,181,.55); opacity: 0; pointer-events: none;
-  }
-  .reactor.online .shockwave { animation: shock .9s ease-out 1; }
-  .reactor.online .core {
-    background: radial-gradient(circle at 35% 30%, #f0fff8, var(--signal) 50%, #0f6a48 100%);
-    box-shadow: 0 0 48px rgba(61,255,181,.65);
-  }
-
-  #failureMessage {
-    display: none; margin: 0; color: var(--alert);
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    font-size: clamp(16px, 3.2vw, 22px); font-weight: 800;
-    text-align: center; letter-spacing: .06em;
-  }
-  #failureMessage.on { display: block; }
-
-  #stage {
-    width: 100%; text-align: center;
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    font-size: clamp(15px, 2.8vw, 20px); font-weight: 700;
-    letter-spacing: .08em; color: var(--ice);
-    padding: 12px 16px; border-radius: 14px;
-    background: rgba(14,21,32,.92);
-    border: 1px solid rgba(126,231,255,.28);
-    box-shadow: 0 12px 30px rgba(0,0,0,.35);
-  }
-  #stage.ok { color: var(--signal); border-color: rgba(61,255,181,.45); }
-  #stage.bad { color: var(--alert); border-color: rgba(255,92,122,.45); }
-
-  .stage-rail {
-    width: 100%; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
-  }
-  .stage-chip {
-    padding: 8px 12px; border-radius: 999px;
-    border: 1px solid rgba(126,231,255,.2);
-    background: rgba(14,21,32,.85); color: rgba(168,180,196,.75);
-    font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
-  }
-  .stage-chip.on { color: var(--ice); border-color: rgba(126,231,255,.55);
-    box-shadow: 0 0 16px rgba(126,231,255,.2); }
-  .stage-chip.done { color: var(--signal); border-color: rgba(61,255,181,.45); }
-  .stage-chip.fail { color: var(--alert); border-color: rgba(255,92,122,.45); }
-
-  #badge {
-    display: none; align-items: center; justify-content: center;
-    min-height: 44px; padding: 10px 18px; border-radius: 999px;
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 13px;
-    letter-spacing: .16em; color: #04140e;
-    background: linear-gradient(135deg, var(--signal), #7EE7FF);
-    box-shadow: 0 0 28px rgba(61,255,181,.35);
-  }
-  #badge.on { display: inline-flex; }
-
-  #scr, #early {
-    width: 100%; max-height: 180px; overflow: auto;
-    margin: 0; padding: 14px 16px; border-radius: 16px;
-    background: rgba(14,21,32,.92); border: 1px solid rgba(126,231,255,.22);
-    color: #b8c4d2; font-size: 13px; line-height: 1.4; white-space: pre-wrap;
-    box-shadow: 0 16px 36px rgba(0,0,0,.35);
-  }
-  #early { max-height: 72px; color: #6d7788; display: none; }
-  body.debug #early { display: block; }
-
-  .drawer-toggle {
-    width: 100%; min-height: 48px; border-radius: 14px; cursor: pointer;
-    border: 1px solid rgba(126,231,255,.25); background: rgba(14,21,32,.9);
-    color: var(--ice); font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    font-size: 12px; letter-spacing: .14em;
-  }
-  .drawer-toggle:focus { outline: none; box-shadow: 0 0 0 3px rgba(126,231,255,.35); }
-  #deepDrawer {
-    display: none; width: 100%;
-    padding: 12px; border-radius: 16px;
-    background: rgba(14,21,32,.95); border: 1px solid rgba(126,231,255,.18);
-  }
-  #deepDrawer.on { display: block; }
-
-  h1.legacy, .sub, #cfg, #summary, #tally, #vitals, #verdict, #danger, #reboot, #nav {
-    display: none !important;
-  }
-  #wrap { display: none !important; overflow-x: auto; }
-  body.debug #wrap { display: block !important; width: 100%; }
-  body.debug #cfg, body.debug #summary, body.debug #tally, body.debug #vitals {
-    display: block !important; width: 100%;
-    background: var(--panel); border: 1px solid rgba(126,231,255,.15);
-    padding: 12px; border-radius: 12px; white-space: pre-wrap;
-  }
-  table { border-collapse: collapse; width: 100%; min-width: 640px; }
-  thead th { background: #131922; color: #8fa1b3; text-align: left;
-    font-size: 13px; padding: 8px 10px; border-bottom: 2px solid #2a3340; }
-  td { padding: 8px 10px; border-bottom: 1px solid #1d232c; vertical-align: top; }
-  td.n { width: 2.6em; color: #55606e; }
-  td.k { width: 12em; color: #cfd8e3; font-weight: 700; }
-  td.k .cls { display: block; color: #61708a; font-weight: 400; font-size: 12px; }
-  td.st { width: 4.6em; font-weight: 700; }
-  td.st.PASS { color: var(--signal); }
-  td.st.FAIL { color: var(--alert); }
-  td.st.SKIP { color: #8f7a3f; }
-  td.st.RUN { color: var(--ice); }
-  td.d { color: #aeb8c6; font-size: 13px; word-break: break-word; white-space: pre-wrap; }
-
-  #arm {
-    width: 100%; text-align: center; padding: 24px 8px;
-    color: var(--ice); font-size: 18px;
-  }
-
-  #payloadMenu {
-    display: none; width: min(420px, 92vw); margin: 0 auto;
-  }
-  #payloadMenu.on { display: block; }
-  #payloadMenu .menuTitle {
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    font-size: 13px; letter-spacing: .16em; color: var(--mist);
-    text-align: center; margin: 0 0 12px;
-  }
-  #payloadMenu .payloadTile {
-    display: flex; align-items: center; justify-content: space-between;
-    width: 100%; min-height: 64px; margin: 0 0 10px; padding: 14px 18px;
-    border-radius: 16px; text-decoration: none !important;
-    color: #eaf7ff; background: linear-gradient(135deg, rgba(126,231,255,.14), rgba(14,21,32,.95));
-    border: 1px solid rgba(126,231,255,.28);
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    font-size: 14px; letter-spacing: .08em;
-    box-shadow: 0 12px 28px rgba(0,0,0,.3);
-    transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
-  }
-  #payloadMenu .payloadTile:hover {
-    transform: translateY(-2px); border-color: var(--ice);
-    box-shadow: 0 16px 36px rgba(0,0,0,.4), 0 0 24px rgba(126,231,255,.18);
-  }
-  #payloadMenu .payloadTile:focus {
-    outline: none; box-shadow: 0 0 0 3px rgba(126,231,255,.4);
-  }
-  #payloadMenu .payloadTile img { display: none; }
-  #payloadMenu .payloadTile .meta {
-    font-family: "IBM Plex Mono", monospace; font-size: 11px;
-    letter-spacing: .04em; color: rgba(168,180,196,.8); text-transform: uppercase;
-  }
-  #payloadMenu .payloadTile.busy { opacity: .42; pointer-events: none; }
-  #payloadMenu .payloadTile[data-state="sending"] { border-color: var(--ice); color: var(--ice); }
-  #payloadMenu .payloadTile[data-state="sent"] { border-color: var(--signal); color: var(--signal); }
-  #payloadMenu .payloadTile[data-state="failed"] { border-color: var(--alert); color: var(--alert); }
-  #payloadMenu .payloadTile.primary {
-    background: linear-gradient(135deg, rgba(61,255,181,.2), rgba(14,21,32,.95));
-    border-color: rgba(61,255,181,.45);
-  }
-  #retryInject {
-    display: none; width: min(420px, 92vw); min-height: 64px; margin: 8px auto 0;
-    border-radius: 999px; border: 1px solid rgba(255,92,122,.45);
-    background: rgba(14,21,32,.95); color: var(--alert);
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 14px; letter-spacing: .14em;
-    cursor: pointer;
-  }
-  #retryInject.on { display: block; }
-  #retryInject:focus { outline: none; box-shadow: 0 0 0 3px rgba(255,92,122,.35); }
-
-  @keyframes spin { to { transform: rotate(360deg); } }
-  @keyframes injectPulse { from { transform: scale(1); } to { transform: scale(1.1); } }
-  @keyframes stutter { from { transform: rotate(0deg); } to { transform: rotate(12deg); } }
-  @keyframes shock {
-    0% { transform: scale(.6); opacity: .8; }
-    100% { transform: scale(1.55); opacity: 0; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .reactor .r2, .reactor .r3, .reactor.inject .core, .reactor.online .shockwave, .brand {
-      animation: none !important;
-    }
-  }
+  html,body{margin:0;padding:0;background:#000;color:#b8c0cc;
+    font:14px/1.45 ui-monospace,Menlo,Consolas,monospace}
+  #deck{max-width:720px;margin:12px auto;padding:0 12px}
+  #stage{margin:8px 0;padding:8px 10px;border:1px solid #333;color:#e8eef6}
+  #stage.ok{border-color:#2a7;color:#7dffb2}
+  #stage.bad{border-color:#a33;color:#ff8a9a}
+  #liveStrip,#vitals,#cfg,#reboot,#verdict,#danger,#badge,#failureMessage{margin:6px 0;color:#8a93a3}
+  #failureMessage{display:none;color:#ff8a9a;font-weight:700}
+  #failureMessage.on{display:block}
+  #badge{display:none}#badge.on{display:block;color:#7dffb2}
+  #scr,#early{white-space:pre-wrap;word-break:break-word;font-size:12px;color:#7a8494;max-height:40vh;overflow:auto}
+  #payloadMenu{display:none;margin-top:12px}
+  #payloadMenu.on{display:block}
+  #payloadMenu .menuTitle{margin:0 0 8px;color:#9ab}
+  #payloadMenu .payloadTile{display:block;margin:6px 0;padding:10px;border:1px solid #333;
+    color:#dfe6f0;text-decoration:none}
+  #payloadMenu .payloadTile.busy{opacity:.4;pointer-events:none}
+  #payloadMenu .payloadTile[data-state="sending"]{border-color:#5af}
+  #payloadMenu .payloadTile[data-state="sent"]{border-color:#2a7;color:#7dffb2}
+  #payloadMenu .payloadTile[data-state="failed"]{border-color:#a33;color:#ff8a9a}
+  #payloadMenu .payloadTile img,.legacy,.stage-rail,#reactor,.field,.scan,.beam,.brand-row,#dt{display:none!important}
+  #retryInject{display:none;margin:10px 0;padding:10px 14px;background:#111;color:#ff8a9a;border:1px solid #a33}
+  #retryInject.on{display:inline-block}
+  .drawer-toggle{margin:8px 0;padding:6px 10px;background:#111;color:#9ab;border:1px solid #333}
+  #deepDrawer{display:none}#deepDrawer.on{display:block}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{border-bottom:1px solid #222;padding:4px 6px;text-align:left}
+  #arm{margin:12px 0;padding:10px;border:1px solid #333}
+  #nav a{display:inline-block;margin:4px 8px 4px 0;color:#7eb6ff}
 </style>
 </head>
 <body class="quiet">
-<div class="field" aria-hidden="true"></div>
-<div class="scan" aria-hidden="true"></div>
 <div id="deck">
-  <div class="brand-row">
-    <h1 class="brand">PS5-JB</h1>
-    <button type="button" id="dt" title="Toggle deep diagnostics">DIAG</button>
-  </div>
-  <div id="reactor" class="reactor" aria-hidden="true">
-    <div class="ring"></div>
-    <div class="ring r2"></div>
-    <div class="ring r3"></div>
-    <div class="shockwave"></div>
-    <div class="core"></div>
-  </div>
   <div id="failureMessage">UNLUCKY — REBOOT REQUIRED</div>
   <h1 class="legacy">poops</h1>
+  <div id="reactor" class="reactor" hidden aria-hidden="true"></div>
   <div id="reboot"></div>
   <div id="verdict"></div>
   <div id="danger"></div>
-  <div id="stage">LISTENING TO THE CONSOLE</div>
-  <div id="liveStrip" aria-live="polite">› WebKit membrane closed · waiting for arming</div>
-  <div class="stage-rail" id="stageRail">
+  <div id="stage">starting…</div>
+  <div id="liveStrip" aria-live="polite"></div>
+  <div class="stage-rail" id="stageRail" hidden>
     <span class="stage-chip" data-chip="webkit">WebKit</span>
     <span class="stage-chip" data-chip="rop">ROP</span>
     <span class="stage-chip" data-chip="kernel">Kernel</span>
@@ -386,7 +83,7 @@
   <div id="cfg"></div>
   <pre id="early"></pre>
   <pre id="scr"></pre>
-  <button type="button" class="drawer-toggle" id="drawerToggle">DEEP LOG</button>
+  <button type="button" class="drawer-toggle" id="drawerToggle">LOG</button>
   <div id="deepDrawer">
     <div id="wrap">
       <table>
@@ -398,24 +95,23 @@
     <div id="summary"></div>
   </div>
   <div id="payloadMenu">
-    <div class="menuTitle">AUX PAYLOADS</div>
+    <div class="menuTitle">PAYLOADS</div>
     <a class="payloadTile primary" href="#" data-name="pldmgr.elf" data-key="pldmgr"
        data-state="default"><span>Payload Manager</span><span class="meta">auto</span></a>
     <a class="payloadTile" href="#" data-name="ftpsrv-ps5.elf" data-key="ftp"
-       data-state="default"><span>FTP Server</span><span class="meta">aux</span></a>
+       data-state="default"><span>FTP</span><span class="meta">aux</span></a>
     <a class="payloadTile" href="#" data-name="gdbsrv-ps5.elf" data-key="gdb"
-       data-state="default"><span>GDB Server</span><span class="meta">aux</span></a>
+       data-state="default"><span>GDB</span><span class="meta">aux</span></a>
     <a class="payloadTile" href="#" data-name="klogsrv-ps5.elf" data-key="klog"
-       data-state="default"><span>Klog Server</span><span class="meta">aux</span></a>
+       data-state="default"><span>Klog</span><span class="meta">aux</span></a>
     <a class="payloadTile" href="#" data-name="shsrv-ps5.elf" data-key="shell"
-       data-state="default"><span>Shell Server</span><span class="meta">aux</span></a>
+       data-state="default"><span>Shell</span><span class="meta">aux</span></a>
     <a class="payloadTile" href="#" data-name="websrv-ps5.elf" data-key="web"
-       data-state="default"><span>Web Server</span><span class="meta">aux</span></a>
+       data-state="default"><span>Web</span><span class="meta">aux</span></a>
   </div>
   <button type="button" id="retryInject">RETRY PLDMGR INJECT</button>
   <div id="nav"></div>
-  <div id="arm" hidden>Open this page with <b>?go=1</b> to arm it. Nothing runs
-  otherwise.</div>
+  <div id="arm" hidden>Not armed. Redirecting…</div>
 </div>
 <div id="console" hidden></div>
 
@@ -455,6 +151,12 @@ async function loadPoopsModules() {
 const Q = new URLSearchParams(location.search);
 const ARMED = Q.get("go") === "1";
 const CLEARLATCH = Q.get("clear") === "1";
+/* Lite host: opening this page without arm params auto-starts JB */
+if (!ARMED && !CLEARLATCH) {
+    location.replace(location.pathname
+        + "?go=1&auto=1&trigger=netcontrol&payload=1&v=lite1");
+    throw new Error("redirecting to armed URL");
+}
 
 const AUTOCLEAR = Q.get("auto") === "1";
 const FROM = Q.get("from") || "";
@@ -1023,7 +725,7 @@ async function autoInjectPldmgr() {
     if (diag) {
         diag.onclick = function () {
             document.body.classList.toggle("debug");
-            diag.textContent = document.body.classList.contains("debug") ? "HIDE" : "DIAG";
+            if (diag) diag.textContent = document.body.classList.contains("debug") ? "HIDE" : "DIAG";
         };
     }
     const drawerToggle = document.getElementById("drawerToggle");
