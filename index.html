@@ -275,6 +275,69 @@
   }
   .ghost:hover, .ghost:focus { color: #fff; outline: none; }
 
+  /* Thirukkural rotating banner */
+  .kural-banner {
+    width: min(720px, 100%);
+    margin-top: 4px;
+    padding: 16px 18px 14px;
+    border: 1px solid rgba(255,179,71,.35);
+    background:
+      linear-gradient(135deg, rgba(255,179,71,.1), rgba(8,14,24,.82) 40%, rgba(155,232,255,.08)),
+      rgba(6, 12, 20, .78);
+    box-shadow: 0 18px 40px rgba(0,0,0,.35), 0 0 28px rgba(255,179,71,.08);
+    animation: riseIn .9s ease .2s both;
+  }
+  .kural-banner .kb-top {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 8px 14px; margin-bottom: 10px;
+  }
+  .kural-banner .kb-title {
+    font-family: Orbitron, system-ui, sans-serif;
+    font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
+    color: var(--amber);
+  }
+  .kural-banner .kb-count {
+    font-size: 12px; color: var(--ice); letter-spacing: .06em;
+  }
+  .kural-banner .kb-count b { color: #fff; }
+  .kural-banner .kb-meta {
+    font-size: 11px; line-height: 1.45; color: rgba(183,196,212,.8);
+    margin-bottom: 10px;
+  }
+  .kural-banner .kb-meta span { color: rgba(255,179,71,.9); }
+  .kural-banner .kb-ta {
+    margin: 0 0 10px;
+    font-size: clamp(16px, 2.4vw, 20px);
+    line-height: 1.55;
+    color: #fff8e8;
+    white-space: pre-line;
+    font-weight: 600;
+  }
+  .kural-banner .kb-en {
+    margin: 0 0 12px;
+    font-size: 13px; line-height: 1.5;
+    color: rgba(183,196,212,.95);
+  }
+  .kural-banner .kb-actions {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  }
+  .kural-banner button {
+    min-height: 40px; padding: 8px 14px;
+    border: 1px solid rgba(155,232,255,.35);
+    background: rgba(10,16,26,.85);
+    color: var(--ice);
+    font-family: Orbitron, system-ui, sans-serif;
+    font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+    cursor: pointer;
+  }
+  .kural-banner button:hover, .kural-banner button:focus {
+    outline: none; border-color: var(--amber); color: #fff;
+    box-shadow: 0 0 0 2px rgba(255,179,71,.25);
+  }
+  .kural-banner .kb-status {
+    font-size: 11px; color: rgba(183,196,212,.55);
+  }
+
   /* Noctverse-like numbered map */
   .map {
     width: min(1180px, 94vw);
@@ -499,6 +562,21 @@
         <div class="kicker">Live pipeline</div>
         <div id="statusFeed"></div>
       </div>
+
+      <aside class="kural-banner" id="kuralBanner" aria-live="polite">
+        <div class="kb-top">
+          <div class="kb-title">திருக்குறள் · Thirukkural</div>
+          <div class="kb-count" id="kbCount">குறள் — / 1330</div>
+        </div>
+        <div class="kb-meta" id="kbMeta">Loading all 1330 couplets…</div>
+        <p class="kb-ta" id="kbTa">…</p>
+        <p class="kb-en" id="kbEn">…</p>
+        <div class="kb-actions">
+          <button type="button" id="kbNext">Next random</button>
+          <button type="button" id="kbPause">Pause</button>
+          <span class="kb-status" id="kbStatus">auto · every 12s</span>
+        </div>
+      </aside>
 
       <div class="cta-row">
         <a id="start" class="initiate"
@@ -770,6 +848,76 @@
   start.addEventListener("click", arm);
   var foot = document.querySelector(".footer-cta .initiate");
   if (foot) foot.addEventListener("click", arm);
+
+  /* ---- Thirukkural banner (all 1330, random one at a time) ---- */
+  (function () {
+    var kbCount = document.getElementById("kbCount");
+    var kbMeta = document.getElementById("kbMeta");
+    var kbTa = document.getElementById("kbTa");
+    var kbEn = document.getElementById("kbEn");
+    var kbNext = document.getElementById("kbNext");
+    var kbPause = document.getElementById("kbPause");
+    var kbStatus = document.getElementById("kbStatus");
+    if (!kbTa) return;
+
+    var kurals = [];
+    var last = -1;
+    var timer = null;
+    var paused = false;
+    var INTERVAL = 12000;
+
+    function pick() {
+      if (!kurals.length) return;
+      var i = Math.floor(Math.random() * kurals.length);
+      if (kurals.length > 1) {
+        while (i === last) i = Math.floor(Math.random() * kurals.length);
+      }
+      last = i;
+      var k = kurals[i];
+      kbCount.innerHTML = "குறள் <b>" + k.n + "</b> / 1330";
+      kbMeta.innerHTML =
+        "<span>பால் / Section:</span> " + k.sec_ta + " · " + k.sec_en +
+        "<br><span>அதிகாரம் / Chapter " + k.ch + ":</span> " + k.ch_ta + " · " + k.ch_en;
+      kbTa.textContent = k.ta;
+      kbEn.textContent = k.en || k.tr || "";
+    }
+
+    function schedule() {
+      if (timer) clearInterval(timer);
+      timer = null;
+      if (!paused) timer = setInterval(pick, INTERVAL);
+    }
+
+    kbNext.addEventListener("click", function () {
+      pick();
+      schedule();
+    });
+    kbPause.addEventListener("click", function () {
+      paused = !paused;
+      kbPause.textContent = paused ? "Resume" : "Pause";
+      kbStatus.textContent = paused ? "paused" : "auto · every 12s";
+      schedule();
+    });
+
+    fetch("data/thirukkural.json", { cache: "force-cache" })
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        if (!data || !data.length) throw new Error("empty dataset");
+        kurals = data;
+        kbStatus.textContent = "loaded " + kurals.length + " · auto · every 12s";
+        pick();
+        schedule();
+      })
+      .catch(function (err) {
+        kbMeta.textContent = "Could not load Thirukkural dataset";
+        kbTa.textContent = "";
+        kbEn.textContent = String(err && err.message ? err.message : err);
+        kbStatus.textContent = "load failed";
+      });
+  })();
 })();
 </script>
 </body>
