@@ -3,10 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SLOPKIT — PS5 Jailbreak Host</title>
+<title>THAMILY — PS5 Jailbreak Host</title>
 <link rel="preload" href="ui/ps5-orbital-hero.png" as="image">
 <link rel="preload" href="ui/webkit-kernel-flux.png" as="image">
 <link rel="preload" href="ui/horizon-cyber-bg.png" as="image">
+<link rel="preload" href="ui/thamily-logo.png" as="image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
@@ -189,12 +190,27 @@
   }
   .brand {
     margin: 0;
+    width: min(520px, 92vw);
+    line-height: 0;
+  }
+  .brand img {
+    display: block;
+    width: 100%;
+    height: auto;
+    filter: drop-shadow(0 0 28px rgba(155,232,255,.35));
+    animation: brandPulse 4s ease-in-out infinite;
+  }
+  @keyframes brandPulse {
+    0%,100% { filter: drop-shadow(0 0 18px rgba(155,232,255,.28)); transform: scale(1); }
+    50% { filter: drop-shadow(0 0 34px rgba(255,179,71,.35)); transform: scale(1.015); }
+  }
+  .brand-fallback {
+    margin: 0;
     font-family: Orbitron, system-ui, sans-serif;
     font-weight: 800;
-    font-size: clamp(48px, 10vw, 100px);
+    font-size: clamp(42px, 9vw, 88px);
     letter-spacing: .12em; line-height: .95;
     color: #f2fbff;
-    text-shadow: 0 0 36px rgba(155,232,255,.3);
   }
   .lede {
     margin: 0; max-width: 34em;
@@ -619,7 +635,11 @@
   <div class="page">
     <section class="hero">
       <div class="eyebrow">PS5 jailbreak host · FW 9.00–12.00</div>
-      <h1 class="brand">SLOPKIT</h1>
+      <h1 class="brand">
+        <img src="ui/thamily-logo.png" alt="THAMILY" width="520" height="292"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+        <span class="brand-fallback" style="display:none">THAMILY</span>
+      </h1>
       <p class="lede">
         Open this site in the PS5 browser. It runs the WebKit → kernel exploit,
         starts elfldr, then auto-launches Payload Manager so you can load FTP,
@@ -844,7 +864,7 @@
 
   /* ---- code running overlay ---- */
   var codeLines = [
-    '<span class="amber">// slopkit · PS5 WebKit host</span>',
+    '<span class="amber">// thamily · PS5 WebKit host</span>',
     'fw = detect_firmware();',
     'if (fw < 9.00 || fw > 12.00) abort();',
     '<span class="mag">primitive</span> = establishPrimitive();',

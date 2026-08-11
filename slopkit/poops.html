@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>slopkit</title>
+<title>thamily</title>
 
 <script>(function () {
     var pending = [];
@@ -120,10 +120,12 @@
   }
   .brand {
     margin: 0;
-    font-family: Orbitron, system-ui, sans-serif;
-    font-weight: 800; font-size: clamp(20px, 4vw, 28px);
-    letter-spacing: .16em; color: #eaf7ff;
-    text-shadow: 0 0 18px rgba(126,231,255,.3);
+    width: min(280px, 55vw);
+    line-height: 0;
+  }
+  .brand img {
+    display: block; width: 100%; height: auto;
+    filter: drop-shadow(0 0 18px rgba(126,231,255,.3));
   }
   #dt {
     font: 700 12px Orbitron, system-ui, sans-serif;
@@ -368,7 +370,10 @@
 <div class="beam" aria-hidden="true"></div>
 <div id="deck">
   <div class="brand-row">
-    <h1 class="brand">SLOPKIT</h1>
+    <h1 class="brand">
+      <img src="../ui/thamily-logo.png" alt="THAMILY" width="280" height="157"
+           onerror="this.outerHTML='<span>THAMILY</span>'">
+    </h1>
     <button type="button" id="dt" title="Toggle deep diagnostics">DIAG</button>
   </div>
   <div id="reactor" class="reactor" aria-hidden="true">
@@ -2101,7 +2106,7 @@ function lastRunText() {
 
             link("?trigger=none", "no -- go back to the negative control",
                 "extra");
-            link("../index.html", "back to slopkit", "extra");
+            link("../index.html", "back to thamily", "extra");
         }
         summaryEl.textContent = lastRunText()
             + "\n\nSAME-process re-arm checks, and their limit stated honestly: " + "this page records the first socket fd it is given and the " + "process's uid, and can therefore notice that THIS WebProcess has " + "already run";
