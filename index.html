@@ -7,7 +7,6 @@
 <link rel="preload" href="ui/ps5-orbital-hero.png" as="image">
 <link rel="preload" href="ui/webkit-kernel-flux.png" as="image">
 <link rel="preload" href="ui/horizon-cyber-bg.png" as="image">
-<link rel="preload" href="ui/tamil-scifi-logo.png" as="image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+Tamil:wght@600;700;800&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
@@ -190,30 +189,39 @@
   }
   .brand-lock {
     position: relative;
-    display: inline-block;
-    max-width: min(560px, 94vw);
-    padding: 0;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    max-width: min(320px, 78vw);
+    padding: 14px 18px 12px;
     isolation: isolate;
   }
   .brand-lock::before {
     content: "";
     position: absolute;
-    inset: -6% -4%;
-    border-radius: 8px;
+    inset: 0;
     pointer-events: none;
+    border-radius: 2px;
     background:
-      linear-gradient(90deg, var(--ice), transparent 30%, transparent 70%, var(--amber)) top / 100% 1px no-repeat,
-      linear-gradient(90deg, var(--signal), transparent 30%, transparent 70%, var(--magenta)) bottom / 100% 1px no-repeat;
-    box-shadow: 0 0 40px rgba(155,232,255,.12);
-    animation: brandFrame 4s ease-in-out infinite;
+      linear-gradient(90deg, var(--ice), var(--ice)) 0 0 / 18px 2px no-repeat,
+      linear-gradient(180deg, var(--ice), var(--ice)) 0 0 / 2px 18px no-repeat,
+      linear-gradient(90deg, var(--amber), var(--amber)) 100% 0 / 18px 2px no-repeat,
+      linear-gradient(180deg, var(--amber), var(--amber)) 100% 0 / 2px 18px no-repeat,
+      linear-gradient(90deg, var(--signal), var(--signal)) 0 100% / 18px 2px no-repeat,
+      linear-gradient(180deg, var(--signal), var(--signal)) 0 100% / 2px 18px no-repeat,
+      linear-gradient(90deg, var(--magenta), var(--magenta)) 100% 100% / 18px 2px no-repeat,
+      linear-gradient(180deg, var(--magenta), var(--magenta)) 100% 100% / 2px 18px no-repeat,
+      rgba(4, 10, 18, .28);
+    box-shadow: 0 0 28px rgba(155,232,255,.1);
   }
   .brand-lock::after {
     content: "";
     position: absolute;
-    left: 8%; right: 8%; height: 2px;
-    top: 12%;
-    background: linear-gradient(90deg, transparent, rgba(155,232,255,.85), rgba(255,179,71,.7), transparent);
-    animation: brandScan 2.6s linear infinite;
+    left: 14px; right: 14px; height: 1px;
+    top: 18%;
+    background: linear-gradient(90deg, transparent, rgba(155,232,255,.9), rgba(255,179,71,.65), transparent);
+    animation: brandScan 2.4s linear infinite;
     pointer-events: none;
     z-index: 2;
   }
@@ -221,34 +229,47 @@
     position: relative;
     z-index: 1;
     margin: 0;
-    line-height: 0;
+    font-family: "Noto Sans Tamil", "Latha", "Tamil MN", sans-serif;
+    font-weight: 800;
+    font-size: clamp(42px, 11vw, 72px);
+    letter-spacing: .08em;
+    line-height: 1.2;
+    color: transparent;
+    background: linear-gradient(
+      105deg,
+      #d9f7ff 0%,
+      var(--ice) 28%,
+      #ffffff 46%,
+      var(--amber) 62%,
+      var(--signal) 100%
+    );
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    filter: drop-shadow(0 0 10px rgba(155,232,255,.5)) drop-shadow(0 0 22px rgba(255,179,71,.22));
+    animation: brandShine 4.5s ease-in-out infinite;
   }
-  .brand img {
-    display: block;
-    width: 100%;
-    height: auto;
-    filter: drop-shadow(0 0 18px rgba(155,232,255,.35)) drop-shadow(0 0 36px rgba(255,179,71,.18));
-    animation: brandPulse 4s ease-in-out infinite;
+  .brand-sub {
+    position: relative;
+    z-index: 1;
+    font-family: Orbitron, system-ui, sans-serif;
+    font-size: 9px;
+    letter-spacing: .36em;
+    text-transform: uppercase;
+    color: rgba(155,232,255,.7);
   }
-  .brand-sr {
-    position: absolute;
-    width: 1px; height: 1px;
-    overflow: hidden; clip: rect(0,0,0,0);
-  }
-  @keyframes brandPulse {
-    0%,100% { filter: drop-shadow(0 0 14px rgba(155,232,255,.3)) drop-shadow(0 0 28px rgba(255,179,71,.15)); transform: scale(1); }
-    50% { filter: drop-shadow(0 0 26px rgba(155,232,255,.55)) drop-shadow(0 0 42px rgba(255,179,71,.28)); transform: scale(1.012); }
+  .brand-sub b { color: var(--amber); font-weight: 700; }
+  @keyframes brandShine {
+    0%,100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
   }
   @keyframes brandScan {
-    0% { top: 10%; opacity: 0; }
-    20% { opacity: .9; }
-    80% { opacity: .9; }
-    100% { top: 88%; opacity: 0; }
+    0% { top: 22%; opacity: 0; }
+    18% { opacity: .85; }
+    82% { opacity: .85; }
+    100% { top: 78%; opacity: 0; }
   }
-  @keyframes brandFrame {
-    0%,100% { opacity: .55; }
-    50% { opacity: 1; }
-  }
+
   .lede {
     margin: 0; max-width: 34em;
     font-size: clamp(15px, 2.1vw, 18px); line-height: 1.55;
@@ -277,7 +298,7 @@
   .metric .v.ok { color: var(--signal); }
 
   .stream {
-    width: min(560px, 100%);
+    width: min(420px, 100%);
     min-height: 4.8em;
     padding: 12px 14px;
     border-left: 2px solid var(--amber);
@@ -331,9 +352,9 @@
 
   /* Thirukkural rotating banner */
   .kural-banner {
-    width: min(720px, 100%);
+    width: min(420px, 100%);
     margin-top: 4px;
-    padding: 16px 18px 14px;
+    padding: 14px 14px 12px;
     border: 1px solid rgba(255,179,71,.35);
     background:
       linear-gradient(135deg, rgba(255,179,71,.1), rgba(8,14,24,.82) 40%, rgba(155,232,255,.08)),
@@ -673,10 +694,8 @@
     <section class="hero">
       <div class="eyebrow">PS5 jailbreak host · FW 9.00–12.00</div>
       <div class="brand-lock">
-        <h1 class="brand">
-          <img src="ui/tamil-scifi-logo.png" width="560" height="315" alt="தமிழ்">
-          <span class="brand-sr">தமிழ்</span>
-        </h1>
+        <h1 class="brand">தமிழ்</h1>
+        <div class="brand-sub">YR.2060 // <b>HOST</b></div>
       </div>
       <p class="lede">
         Open this site in the PS5 browser. It runs the WebKit → kernel exploit,
@@ -926,33 +945,50 @@
   paintCode();
   setInterval(paintCode, 900);
 
-  /* ---- matrix rain ---- */
+  /* ---- matrix rain — classical Tamil 247 figures ---- */
   var canvas = document.getElementById("matrix");
   var ctx = canvas.getContext("2d");
-  var cols = [], font = 14, reduce = false;
+  var cols = [], font = 15, colW = 18, reduce = false;
   try {
     reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   } catch (e) {}
   function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    var n = Math.floor(canvas.width / font);
+    var n = Math.floor(canvas.width / colW);
     cols = [];
     for (var i = 0; i < n; i++) cols[i] = Math.random() * canvas.height / font;
   }
   resize();
   window.addEventListener("resize", resize);
-  var glyphs = "01アカサタナハマヤラワ<>[]{}#@$slopkitWEBKIT";
+  /* Classical Tamil 247: 12 uyir + 18 mei + 1 āytam + 216 uyirmei */
+  var glyphs = [
+    "அ", "ஆ", "இ", "ஈ", "உ", "ஊ", "எ", "ஏ", "ஐ", "ஒ", "ஓ", "ஔ", "க்", "ங்", "ச்", "ஞ்",
+    "ட்", "ண்", "த்", "ந்", "ப்", "ம்", "ய்", "ர்", "ல்", "வ்", "ழ்", "ள்", "ற்", "ன்", "ஃ", "க",
+    "கா", "கி", "கீ", "கு", "கூ", "கெ", "கே", "கை", "கொ", "கோ", "கௌ", "ங", "ஙா", "ஙி", "ஙீ", "ஙு",
+    "ஙூ", "ஙெ", "ஙே", "ஙை", "ஙொ", "ஙோ", "ஙௌ", "ச", "சா", "சி", "சீ", "சு", "சூ", "செ", "சே", "சை",
+    "சொ", "சோ", "சௌ", "ஞ", "ஞா", "ஞி", "ஞீ", "ஞு", "ஞூ", "ஞெ", "ஞே", "ஞை", "ஞொ", "ஞோ", "ஞௌ", "ட",
+    "டா", "டி", "டீ", "டு", "டூ", "டெ", "டே", "டை", "டொ", "டோ", "டௌ", "ண", "ணா", "ணி", "ணீ", "ணு",
+    "ணூ", "ணெ", "ணே", "ணை", "ணொ", "ணோ", "ணௌ", "த", "தா", "தி", "தீ", "து", "தூ", "தெ", "தே", "தை",
+    "தொ", "தோ", "தௌ", "ந", "நா", "நி", "நீ", "நு", "நூ", "நெ", "நே", "நை", "நொ", "நோ", "நௌ", "ப",
+    "பா", "பி", "பீ", "பு", "பூ", "பெ", "பே", "பை", "பொ", "போ", "பௌ", "ம", "மா", "மி", "மீ", "மு",
+    "மூ", "மெ", "மே", "மை", "மொ", "மோ", "மௌ", "ய", "யா", "யி", "யீ", "யு", "யூ", "யெ", "யே", "யை",
+    "யொ", "யோ", "யௌ", "ர", "ரா", "ரி", "ரீ", "ரு", "ரூ", "ரெ", "ரே", "ரை", "ரொ", "ரோ", "ரௌ", "ல",
+    "லா", "லி", "லீ", "லு", "லூ", "லெ", "லே", "லை", "லொ", "லோ", "லௌ", "வ", "வா", "வி", "வீ", "வு",
+    "வூ", "வெ", "வே", "வை", "வொ", "வோ", "வௌ", "ழ", "ழா", "ழி", "ழீ", "ழு", "ழூ", "ழெ", "ழே", "ழை",
+    "ழொ", "ழோ", "ழௌ", "ள", "ளா", "ளி", "ளீ", "ளு", "ளூ", "ளெ", "ளே", "ளை", "ளொ", "ளோ", "ளௌ", "ற",
+    "றா", "றி", "றீ", "று", "றூ", "றெ", "றே", "றை", "றொ", "றோ", "றௌ", "ன", "னா", "னி", "னீ", "னு",
+    "னூ", "னெ", "னே", "னை", "னொ", "னோ", "னௌ"
+  ];
   function drawMatrix() {
     if (reduce) return;
     ctx.fillStyle = "rgba(5,7,12,0.08)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#5dffc2";
-    ctx.font = font + "px monospace";
+    ctx.font = "600 " + font + "px \"Noto Sans Tamil\", \"Tamil MN\", sans-serif";
     for (var i = 0; i < cols.length; i++) {
-      var ch = glyphs.charAt(Math.floor(Math.random() * glyphs.length));
+      var ch = glyphs[Math.floor(Math.random() * glyphs.length)];
       ctx.fillStyle = (i % 17 === 0) ? "#ffb347" : ((i % 9 === 0) ? "#9be8ff" : "#5dffc2");
-      ctx.fillText(ch, i * font, cols[i] * font);
+      ctx.fillText(ch, i * colW, cols[i] * font);
       if (cols[i] * font > canvas.height && Math.random() > 0.975) cols[i] = 0;
       cols[i] += 0.65 + Math.random() * 0.4;
     }
@@ -963,7 +999,7 @@
   var tips = {
     webkit: { title: "WebKit primitive", body: "The PS5 browser bug is the entry point. Without it, there is no userland R/W and no path to kernel." },
     horizon: { title: "Horizon scan node", body: "Cosmetic machine-node flavor. Reminds you this host is scanning the console like a Focus overlay before the real exploit starts." },
-    matrix: { title: "Matrix bus", body: "Visual bus for live code weather. The real traffic later is ELF bytes to 127.0.0.1:9021." },
+    matrix: { title: "Matrix bus", body: "Tamil 247-letter rain (uyir · mei · āytam · uyirmei). Cosmetic code weather — real traffic later is ELF bytes to 127.0.0.1:9021." },
     pldmgr: { title: "Payload Manager", body: "After jailbreak, slopkit auto-sends pldmgr.elf so you get an on-console payload UI without USB." }
   };
   var artifacts = document.querySelectorAll(".artifact");

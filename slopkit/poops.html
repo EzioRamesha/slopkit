@@ -120,12 +120,21 @@
   }
   .brand {
     margin: 0;
-    width: min(240px, 52vw);
-    line-height: 0;
+    font-family: "Noto Sans Tamil", "Latha", "Tamil MN", sans-serif;
+    font-weight: 800;
+    font-size: clamp(26px, 6vw, 34px);
+    letter-spacing: .08em;
+    color: transparent;
+    background: linear-gradient(105deg, #eafcff, var(--ice) 40%, var(--amber) 70%, var(--signal));
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    filter: drop-shadow(0 0 12px rgba(126,231,255,.4));
+    animation: brandShine 4.5s ease-in-out infinite;
   }
-  .brand img {
-    display: block; width: 100%; height: auto;
-    filter: drop-shadow(0 0 14px rgba(126,231,255,.4));
+  @keyframes brandShine {
+    0%,100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
   }
   #dt {
     font: 700 12px Orbitron, system-ui, sans-serif;
@@ -370,9 +379,7 @@
 <div class="beam" aria-hidden="true"></div>
 <div id="deck">
   <div class="brand-row">
-    <h1 class="brand">
-      <img src="../ui/tamil-scifi-logo.png" width="240" height="135" alt="தமிழ்">
-    </h1>
+    <h1 class="brand">தமிழ்</h1>
     <button type="button" id="dt" title="Toggle deep diagnostics">DIAG</button>
   </div>
   <div id="reactor" class="reactor" aria-hidden="true">
