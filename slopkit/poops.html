@@ -737,7 +737,8 @@ function preparePayloadSender() {
     }
 }
 
-async function sendPayloadToElfldr(name) {
+async function sendPayloadToElfldr(name, opts) {
+    const options = opts || {};
     if (!elfldrSpawned)
         throw new Error("ELF loader is not ready");
     if (!P || !chain)
@@ -746,8 +747,10 @@ async function sendPayloadToElfldr(name) {
         throw new Error("the ROP chain is unusable after " + chainDead);
     if (payloadSenderBlocked)
         throw new Error(payloadSenderBlocked);
-    if (!payloadIsListed(name))
+    if (!options.allowUnlisted && !payloadIsListed(name))
         throw new Error("payload is not listed in this menu");
+    if (!/^[A-Za-z0-9._-]+\.elf$/i.test(name))
+        throw new Error("payload name is not allowed");
 
     const response = await fetch("../payloads/" + encodeURIComponent(name),
         { cache: "no-store" });
@@ -767,33 +770,60 @@ async function sendPayloadToElfldr(name) {
     let sent = 0;
     let failure = null;
     let closeWarning = null;
+    const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms));
+    const CONNECT_ATTEMPTS = 20;
+    const CONNECT_GAP_MS = 150;
     try {
-        let result = await sys(SYS_SOCKET, 2, 1, 0);
-        if (result.failed || result.s32 < 0)
-            throw payloadSyscallError("socket", result);
-        fd = result.s32;
-        track(fd);
+        let lastConnectError = null;
+        for (let attempt = 1; attempt <= CONNECT_ATTEMPTS; ++attempt) {
+            let result = await sys(SYS_SOCKET, 2, 1, 0);
+            if (result.failed || result.s32 < 0)
+                throw payloadSyscallError("socket", result);
+            fd = result.s32;
+            track(fd);
 
-        result = await sys(SYS_SETSOCKOPT, fd, 0xffff, 0x0800,
-            payloadSocketOptionStore.ptr, 4);
-        if (result.failed || result.s32 !== 0)
-            throw payloadSyscallError("setsockopt SO_NOSIGPIPE", result);
+            result = await sys(SYS_SETSOCKOPT, fd, 0xffff, 0x0800,
+                payloadSocketOptionStore.ptr, 4);
+            if (result.failed || result.s32 !== 0)
+                throw payloadSyscallError("setsockopt SO_NOSIGPIPE", result);
 
-        result = await sys(SYS_SETSOCKOPT, fd, 0xffff, 0x1005,
-            payloadSendTimeoutStore.ptr, 0x10);
-        if (result.failed || result.s32 !== 0)
-            throw payloadSyscallError("setsockopt SO_SNDTIMEO", result);
+            result = await sys(SYS_SETSOCKOPT, fd, 0xffff, 0x1005,
+                payloadSendTimeoutStore.ptr, 0x10);
+            if (result.failed || result.s32 !== 0)
+                throw payloadSyscallError("setsockopt SO_SNDTIMEO", result);
 
-        result = await sys(SYS_CONNECT, fd, payloadSockaddrStore.ptr, 0x10);
-        if (result.failed || result.s32 !== 0)
-            throw payloadSyscallError("connect to 127.0.0.1:9021", result);
+            result = await sys(SYS_CONNECT, fd, payloadSockaddrStore.ptr, 0x10);
+            if (!result.failed && result.s32 === 0) {
+                lastConnectError = null;
+                break;
+            }
+            lastConnectError = payloadSyscallError(
+                "connect to 127.0.0.1:" + PAYLOAD_PORT
+                    + " (attempt " + attempt + "/" + CONNECT_ATTEMPTS + ")",
+                result);
+            try {
+                const closeRes = await sys(SYS_CLOSE, fd);
+                if (!closeRes.failed && closeRes.s32 === 0) untrack(fd);
+                else throw payloadSyscallError("close after connect miss", closeRes);
+            } catch (closeErr) {
+                payloadSenderBlocked = "payload sending is blocked until reboot because "
+                    + "socket fd " + fd + " was not confirmed closed after a connect miss";
+                throw closeErr;
+            }
+            fd = -1;
+            if (attempt === CONNECT_ATTEMPTS) throw lastConnectError;
+            await sleepMs(CONNECT_GAP_MS);
+        }
+        if (fd < 0)
+            throw lastConnectError || new Error("connect to 127.0.0.1:"
+                + PAYLOAD_PORT + " failed");
 
         while (sent < bytes.length) {
             const blockSize = Math.min(PAYLOAD_BUFFER_SIZE, bytes.length - sent);
             payloadSendStore.u8.set(bytes.subarray(sent, sent + blockSize), 0);
             let blockSent = 0;
             while (blockSent < blockSize) {
-                result = await sys(SYS_WRITE, fd,
+                let result = await sys(SYS_WRITE, fd,
                     payloadSendStore.ptr.add32(blockSent), blockSize - blockSent);
                 if (result.failed || result.s32 <= 0)
                     throw payloadSyscallError("write at byte "
@@ -849,7 +879,11 @@ function payloadTileBaseClass(tile) {
         ? "payloadTile primary" : "payloadTile";
 }
 
-async function sendPayloadInPlace(name, tile) {
+async function sendPayloadInPlace(name, tile, opts) {
+    if (payloadSenderBlocked) {
+        flushMark("ELF-SEND-SKIPPED", "blocked=" + clean(payloadSenderBlocked));
+        return false;
+    }
     if (payloadSendBusy) return false;
     payloadSendBusy = true;
     const tiles = payloadMenuEl.getElementsByTagName("a");
@@ -861,7 +895,7 @@ async function sendPayloadInPlace(name, tile) {
     }
     let ok = false;
     try {
-        const result = await sendPayloadToElfldr(name);
+        const result = await sendPayloadToElfldr(name, opts);
         if (tile) {
             tile.className = payloadTileBaseClass(tile);
             setPayloadTileState(tile, "sent");
@@ -912,33 +946,100 @@ async function sendPayloadInPlace(name, tile) {
 }
 
 let pldmgrAutoStarted = false;
+async function loadHostQueue() {
+    try {
+        const res = await fetch("../payloads/queue.json?ts=" + Date.now(), {
+            cache: "no-store"
+        });
+        if (!res.ok) return null;
+        const q = await res.json();
+        if (!q || !Array.isArray(q.items)) return null;
+        return {
+            autoInject: !!q.autoInject,
+            items: q.items.filter(function (it) {
+                return it && /^[A-Za-z0-9._-]+\.elf$/i.test(String(it.name || ""));
+            }).map(function (it) {
+                return {
+                    name: String(it.name),
+                    delayAfterSec: Math.max(0, Number(it.delayAfterSec) || 0)
+                };
+            })
+        };
+    } catch (e) {
+        return null;
+    }
+}
+
 async function autoInjectPldmgr() {
     if (pldmgrAutoStarted) return;
     pldmgrAutoStarted = true;
-    const tile = payloadMenuEl.querySelector('[data-name="pldmgr.elf"]');
+    const retry = document.getElementById("retryInject");
+    const queue = await loadHostQueue();
+    const items = (queue && queue.items && queue.items.length)
+        ? queue.items
+        : [{ name: "pldmgr.elf", delayAfterSec: 0 }];
+    const autoOn = !queue || queue.autoInject !== false;
+    if (!autoOn) {
+        stage("ELF LOADER READY — auto inject off (see Payload config)", "ok");
+        flushMark("QUEUE-AUTO-OFF", "items=" + items.length);
+        if (retry) retry.className = "";
+        return;
+    }
+
     setReactorState("inject");
     setStageChip("pldmgr", "on");
-    stage("INJECTING PLDMGR", "");
-    flushMark("PLDMGR-AUTO-START", "name=pldmgr.elf");
-    const ok = await sendPayloadInPlace("pldmgr.elf",
-        tile || payloadMenuEl.getElementsByTagName("a")[0]);
-    if (ok) {
+    let allOk = true;
+    for (let i = 0; i < items.length; ++i) {
+        const item = items[i];
+        const tile = payloadMenuEl.querySelector('[data-name="' + item.name + '"]');
+        stage("INJECTING " + (i + 1) + "/" + items.length + ": " + item.name, "");
+        flushMark("QUEUE-INJECT", "i=" + (i + 1) + "-of-" + items.length
+            + "-name=" + clean(item.name));
+        const ok = await sendPayloadInPlace(item.name, tile, { allowUnlisted: true });
+        if (!ok) {
+            allOk = false;
+            flushMark("QUEUE-INJECT-FAIL", "name=" + clean(item.name));
+            break;
+        }
+        if (i < items.length - 1 && item.delayAfterSec > 0) {
+            stage("WAITING " + item.delayAfterSec + "s before next payload", "");
+            flushMark("QUEUE-DELAY", "sec=" + item.delayAfterSec);
+            await new Promise(function (r) {
+                setTimeout(r, item.delayAfterSec * 1000);
+            });
+        }
+    }
+
+    if (allOk) {
         setReactorState("online");
         setStageChip("pldmgr", "done");
-        stageEl.textContent = "PAYLOAD MANAGER ONLINE";
+        stageEl.textContent = "QUEUE INJECT COMPLETE";
         stageEl.className = "ok";
         syncStageChips("pldmgr online", "ok");
-        flushMark("PLDMGR-AUTO-OK", "name=pldmgr.elf");
-        const retry = document.getElementById("retryInject");
+        flushMark("QUEUE-AUTO-OK", "count=" + items.length);
         if (retry) retry.className = "";
+    } else if (payloadSenderBlocked) {
+        setReactorState("bad");
+        setStageChip("pldmgr", "fail");
+        stageEl.textContent = "PAYLOAD BLOCKED — REBOOT REQUIRED";
+        stageEl.className = "bad";
+        if (retry) {
+            retry.className = "";
+            retry.textContent = "REBOOT REQUIRED";
+            retry.disabled = true;
+        }
+        flushMark("QUEUE-AUTO-BLOCKED", clean(payloadSenderBlocked));
     } else {
         setReactorState("inject-fail");
         setStageChip("pldmgr", "fail");
-        stageEl.textContent = "PLDMGR INJECT FAILED — RETRY OR REBOOT";
+        stageEl.textContent = "QUEUE INJECT FAILED — RETRY OR REBOOT";
         stageEl.className = "bad";
-        const retry = document.getElementById("retryInject");
-        if (retry) retry.className = "on";
-        flushMark("PLDMGR-AUTO-FAIL", "name=pldmgr.elf");
+        if (retry) {
+            retry.disabled = false;
+            retry.textContent = "RETRY QUEUE INJECT";
+            retry.className = "on";
+        }
+        flushMark("QUEUE-AUTO-FAIL", "count=" + items.length);
     }
 }
 
@@ -946,6 +1047,16 @@ async function autoInjectPldmgr() {
     const retry = document.getElementById("retryInject");
     if (retry) {
         retry.onclick = function () {
+            if (payloadSenderBlocked) {
+                stageEl.textContent = "PAYLOAD BLOCKED — REBOOT REQUIRED";
+                stageEl.className = "bad";
+                flushMark("QUEUE-RETRY-DENIED", clean(payloadSenderBlocked));
+                return;
+            }
+            if (payloadSendBusy) {
+                flushMark("QUEUE-RETRY-BUSY", "sender-still-busy");
+                return;
+            }
             pldmgrAutoStarted = false;
             retry.className = "";
             autoInjectPldmgr();

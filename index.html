@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+Tamil:wght@600;700;800&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
 <script src="ui/sfx.js?v=1"></script>
+<script src="ui/payload-config.js?v=1"></script>
 <style>
   :root {
     --void: #05070c;
@@ -347,6 +348,91 @@
     border-bottom: 1px solid rgba(155,232,255,.35); padding-bottom: 2px;
   }
   .ghost:hover, .ghost:focus { color: #fff; outline: none; }
+
+  /* Payload config modal */
+  #payloadConfig {
+    display: none; position: fixed; inset: 0; z-index: 80;
+  }
+  #payloadConfig.on { display: block; }
+  #payloadConfig .pc-backdrop {
+    position: absolute; inset: 0; background: rgba(0,0,0,.72);
+  }
+  #payloadConfig .pc-dialog {
+    position: relative; z-index: 1;
+    width: min(560px, 94vw); max-height: min(88vh, 820px);
+    margin: 4vh auto; padding: 16px 16px 14px;
+    overflow: auto;
+    background: #0b121c; color: var(--mist);
+    border: 1px solid rgba(155,232,255,.35);
+    box-shadow: 0 24px 60px rgba(0,0,0,.55);
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  #payloadConfig .pc-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    margin-bottom: 8px;
+  }
+  #payloadConfig .pc-head h2 {
+    margin: 0; font-family: Orbitron, system-ui, sans-serif;
+    font-size: 16px; letter-spacing: .12em; color: #eef8ff;
+  }
+  #payloadConfig .pc-x {
+    border: 1px solid rgba(155,232,255,.35); background: transparent;
+    color: var(--ice); font-size: 22px; line-height: 1; width: 40px; height: 40px;
+    cursor: pointer;
+  }
+  #payloadConfig .pc-help { margin: 0 0 12px; font-size: 12px; line-height: 1.45; color: rgba(183,196,212,.85); }
+  #payloadConfig .pc-auth, #payloadConfig .pc-toolbar, #payloadConfig .pc-foot {
+    display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin-bottom: 12px;
+  }
+  #payloadConfig label { font-size: 11px; color: rgba(155,232,255,.75); }
+  #payloadConfig #pcOwner,
+  #payloadConfig #pcRepo,
+  #payloadConfig #pcBranch,
+  #payloadConfig #pcToken,
+  #payloadConfig .pc-delay input {
+    display: block; margin-top: 4px; min-height: 36px; padding: 6px 8px;
+    width: min(100%, 220px); border: 1px solid rgba(155,232,255,.28);
+    background: rgba(8,14,24,.9); color: #eef8ff;
+  }
+  #payloadConfig .pc-token input { width: min(100%, 100%); min-width: 200px; }
+  #payloadConfig .pc-toggle { color: #eef8ff; font-size: 13px; }
+  #payloadConfig button, #payloadConfig .pc-file {
+    min-height: 40px; padding: 8px 12px; cursor: pointer;
+    border: 1px solid rgba(155,232,255,.35);
+    background: rgba(10,16,26,.9); color: var(--ice);
+    font-family: Orbitron, system-ui, sans-serif;
+    font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  }
+  #payloadConfig .pc-primary {
+    border-color: rgba(255,179,71,.55); color: #fff8ef;
+    background: linear-gradient(135deg, rgba(255,179,71,.28), rgba(8,14,24,.95));
+  }
+  #payloadConfig .pc-file { display: inline-flex; align-items: center; gap: 8px; }
+  #payloadConfig .pc-file input { width: 120px; color: #fff; }
+  #payloadConfig .pc-list { list-style: none; margin: 0 0 12px; padding: 0; }
+  #payloadConfig .pc-item {
+    display: grid; gap: 8px;
+    grid-template-columns: 1fr auto;
+    padding: 10px; margin-bottom: 8px;
+    border: 1px solid rgba(155,232,255,.2); background: rgba(8,14,24,.65);
+  }
+  #payloadConfig .pc-name { grid-column: 1 / -1; color: #eef8ff; font-weight: 600; word-break: break-all; }
+  #payloadConfig .pc-delay input { width: 88px; }
+  #payloadConfig .pc-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  #payloadConfig .pc-empty { padding: 12px; color: rgba(183,196,212,.7); border: 1px dashed rgba(155,232,255,.25); }
+  #payloadConfig .pc-status { min-height: 1.4em; margin: 0; font-size: 12px; color: var(--ice); }
+  #payloadConfig .pc-status.err { color: var(--alert); }
+  .cfg-btn {
+    min-height: 44px; padding: 10px 14px; cursor: pointer;
+    border: 1px solid rgba(155,232,255,.4);
+    background: rgba(10,16,26,.85); color: var(--ice);
+    font-family: Orbitron, system-ui, sans-serif;
+    font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  }
+  .cfg-btn:hover, .cfg-btn:focus {
+    outline: none; border-color: var(--amber); color: #fff;
+    box-shadow: 0 0 0 2px rgba(255,179,71,.25);
+  }
 
   /* Thirukkural rotating banner */
   .kural-banner {
@@ -688,6 +774,8 @@
     <span id="sfxFabLabel">🔊 SOUND</span>
   </button>
 
+  <div id="payloadConfig"></div>
+
   <div class="page">
     <section class="hero">
       <div class="eyebrow">PS5 jailbreak host · FW 9.00–12.00</div>
@@ -730,14 +818,15 @@
 
       <div class="cta-row">
         <a id="start" class="initiate"
-           href="slopkit/poops.html?go=1&amp;auto=1&amp;trigger=netcontrol&amp;payload=1&amp;v=25"
+           href="slopkit/poops.html?go=1&amp;auto=1&amp;trigger=netcontrol&amp;payload=1&amp;v=27"
            tabindex="0"><span>START JAILBREAK</span></a>
+        <button type="button" class="cfg-btn" id="openPayloadConfig">Payload config</button>
         <button type="button" id="sfxToggle" aria-pressed="true" title="Toggle music and UI sounds">
           <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
           <span id="sfxLabel">SOUND ON</span>
         </button>
         <a class="ghost" href="#map">See the service map</a>
-        <div class="meta">Then auto-injects <b>pldmgr.elf</b></div>
+        <div class="meta">Queue / auto-inject from <b>Payload config</b></div>
       </div>
     </section>
 
@@ -870,6 +959,14 @@
   syncMuteUi();
   if (sfxToggle) sfxToggle.addEventListener("click", toggleSound);
   if (sfxFab) sfxFab.addEventListener("click", toggleSound);
+  var openCfg = document.getElementById("openPayloadConfig");
+  var cfgRoot = document.getElementById("payloadConfig");
+  if (openCfg && cfgRoot && window.PayloadConfig) {
+    openCfg.addEventListener("click", function () {
+      try { if (window.SlopkitSFX) window.SlopkitSFX.click(); } catch (e) {}
+      window.PayloadConfig.open(cfgRoot);
+    });
+  }
   document.addEventListener("pointerdown", function once() {
     if (SFX) SFX.unlock();
     document.removeEventListener("pointerdown", once);

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "autoInject": true,
+  "items": [
+    {
+      "id": "pldmgr-default",
+      "name": "pldmgr.elf",
+      "delayAfterSec": 0
+    }
+  ]
+}
