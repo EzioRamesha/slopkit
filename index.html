@@ -475,46 +475,74 @@
   .corner b { display: block; margin-top: 4px; color: #eef8ff; font-weight: 600; }
 
   #sfxToggle {
-    position: fixed; z-index: 8;
-    top: 16px; right: 16px;
-    min-width: 128px; min-height: 44px;
-    padding: 8px 12px;
-    display: flex; align-items: center; gap: 10px;
-    border: 1px solid rgba(155,232,255,.35);
-    background: rgba(8,14,24,.88);
-    color: var(--ice);
+    position: relative;
+    z-index: 6;
+    min-width: 160px; min-height: 56px;
+    padding: 12px 18px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 12px;
+    border: 2px solid var(--amber);
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(255,179,71,.28), rgba(8,14,24,.95));
+    color: #fff8ef;
     font-family: Orbitron, system-ui, sans-serif;
-    font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+    font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
     cursor: pointer;
+    box-shadow: 0 12px 28px rgba(0,0,0,.4), 0 0 24px rgba(255,179,71,.2);
   }
   #sfxToggle:hover, #sfxToggle:focus {
-    outline: none; border-color: var(--amber);
-    box-shadow: 0 0 0 2px rgba(255,179,71,.25);
+    outline: none;
+    transform: translateY(-2px);
+    box-shadow: 0 0 0 4px rgba(255,179,71,.3), 0 16px 36px rgba(0,0,0,.45);
   }
   #sfxToggle .eq {
-    display: flex; align-items: flex-end; gap: 2px; height: 16px;
+    display: flex; align-items: flex-end; gap: 3px; height: 18px;
   }
   #sfxToggle .eq i {
-    display: block; width: 3px; background: var(--signal);
+    display: block; width: 4px; background: var(--signal);
     animation: eqIdle 1.1s ease-in-out infinite;
   }
   #sfxToggle .eq i:nth-child(1) { height: 40%; animation-delay: 0s; }
   #sfxToggle .eq i:nth-child(2) { height: 70%; animation-delay: .15s; }
   #sfxToggle .eq i:nth-child(3) { height: 55%; animation-delay: .3s; }
   #sfxToggle .eq i:nth-child(4) { height: 85%; animation-delay: .45s; }
+  #sfxToggle.muted {
+    border-color: rgba(183,196,212,.45);
+    background: rgba(14,21,32,.92);
+    color: var(--mist);
+    box-shadow: none;
+  }
   #sfxToggle.muted .eq i {
     animation: none; height: 20% !important; background: rgba(183,196,212,.35);
   }
   #sfxToggle.pulse {
     border-color: var(--signal);
-    box-shadow: 0 0 18px rgba(93,255,194,.25);
+    box-shadow: 0 0 22px rgba(93,255,194,.35);
   }
   @keyframes eqIdle {
     0%,100% { transform: scaleY(.45); }
     50% { transform: scaleY(1); }
   }
 
-  .corner.tr { top: 68px; right: 16px; }
+  /* Floating backup control — bottom left, away from browser chrome */
+  #sfxFab {
+    position: fixed; z-index: 30;
+    left: 16px; bottom: 16px;
+    min-width: 120px; min-height: 52px;
+    padding: 10px 16px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    border: 2px solid var(--ice);
+    border-radius: 999px;
+    background: rgba(5,10,18,.95);
+    color: var(--ice);
+    font-family: Orbitron, system-ui, sans-serif;
+    font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5);
+  }
+  #sfxFab:hover, #sfxFab:focus {
+    outline: none; border-color: var(--amber); color: #fff;
+  }
+  #sfxFab.muted { border-color: rgba(183,196,212,.4); color: var(--mist); }
 
   @keyframes worldDrift {
     from { transform: scale(1.04) translate(0,0); }
@@ -582,11 +610,11 @@
   </button>
 
   <div class="corner tl">PS5 browser<b id="hudLink">ready</b></div>
-  <button type="button" id="sfxToggle" aria-pressed="true" title="Toggle music and UI sounds">
-    <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-    <span id="sfxLabel">SOUND ON</span>
-  </button>
   <div class="corner tr">Uptime<b id="clock">00:00:00</b></div>
+
+  <button type="button" id="sfxFab" aria-pressed="true" title="Toggle sound">
+    <span id="sfxFabLabel">🔊 SOUND</span>
+  </button>
 
   <div class="page">
     <section class="hero">
@@ -627,8 +655,12 @@
 
       <div class="cta-row">
         <a id="start" class="initiate"
-           href="slopkit/poops.html?go=1&amp;auto=1&amp;trigger=netcontrol&amp;payload=1&amp;v=23"
+           href="slopkit/poops.html?go=1&amp;auto=1&amp;trigger=netcontrol&amp;payload=1&amp;v=24"
            tabindex="0"><span>START JAILBREAK</span></a>
+        <button type="button" id="sfxToggle" aria-pressed="true" title="Toggle music and UI sounds">
+          <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span id="sfxLabel">SOUND ON</span>
+        </button>
         <a class="ghost" href="#map">See the service map</a>
         <div class="meta">Then auto-injects <b>pldmgr.elf</b></div>
       </div>
@@ -726,33 +758,43 @@
   var detailBody = document.getElementById("detailBody");
   var sfxToggle = document.getElementById("sfxToggle");
   var sfxLabel = document.getElementById("sfxLabel");
+  var sfxFab = document.getElementById("sfxFab");
+  var sfxFabLabel = document.getElementById("sfxFabLabel");
   try { start.focus(); } catch (e) {}
 
   function sfx(name) {
     try { if (SFX && SFX[name]) SFX[name](); } catch (e) {}
   }
   function flashSfx() {
-    if (!sfxToggle) return;
-    sfxToggle.classList.add("pulse");
-    setTimeout(function () { sfxToggle.classList.remove("pulse"); }, 220);
+    if (sfxToggle) {
+      sfxToggle.classList.add("pulse");
+      setTimeout(function () { sfxToggle.classList.remove("pulse"); }, 220);
+    }
   }
   function syncMuteUi() {
-    if (!SFX || !sfxToggle) return;
+    if (!SFX) return;
     var on = SFX.enabled();
-    sfxToggle.classList.toggle("muted", !on);
-    sfxToggle.setAttribute("aria-pressed", on ? "true" : "false");
-    sfxLabel.textContent = on ? "SOUND ON" : "SOUND OFF";
+    if (sfxToggle) {
+      sfxToggle.classList.toggle("muted", !on);
+      sfxToggle.setAttribute("aria-pressed", on ? "true" : "false");
+    }
+    if (sfxLabel) sfxLabel.textContent = on ? "SOUND ON" : "SOUND OFF";
+    if (sfxFab) {
+      sfxFab.classList.toggle("muted", !on);
+      sfxFab.setAttribute("aria-pressed", on ? "true" : "false");
+    }
+    if (sfxFabLabel) sfxFabLabel.textContent = on ? "🔊 SOUND" : "🔇 MUTED";
+  }
+  function toggleSound() {
+    if (!SFX) return;
+    SFX.unlock();
+    SFX.setEnabled(!SFX.enabled());
+    syncMuteUi();
+    flashSfx();
   }
   syncMuteUi();
-  if (sfxToggle) {
-    sfxToggle.addEventListener("click", function () {
-      if (!SFX) return;
-      SFX.unlock();
-      SFX.setEnabled(!SFX.enabled());
-      syncMuteUi();
-      flashSfx();
-    });
-  }
+  if (sfxToggle) sfxToggle.addEventListener("click", toggleSound);
+  if (sfxFab) sfxFab.addEventListener("click", toggleSound);
   document.addEventListener("pointerdown", function once() {
     if (SFX) SFX.unlock();
     document.removeEventListener("pointerdown", once);
