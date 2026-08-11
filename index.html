@@ -30,41 +30,71 @@
     overflow-x: hidden;
   }
 
-  /* ===== WORLD ===== */
+  /* ===== WORLD — PS5 + Horizon + Terminator + WebKit flux ===== */
   .world {
     position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
   }
   .world-horizon {
     position: absolute; inset: 0;
     background:
-      linear-gradient(180deg, rgba(5,7,12,.55) 0%, rgba(5,7,12,.35) 40%, rgba(5,7,12,.88) 100%),
-      url("ui/horizon-cyber-bg.png") center 40% / cover no-repeat;
-    opacity: .55;
+      linear-gradient(180deg, rgba(5,7,12,.5) 0%, rgba(5,7,12,.25) 45%, rgba(5,7,12,.85) 100%),
+      url("ui/horizon-cyber-bg.png") center 42% / cover no-repeat;
+    opacity: .5;
   }
   .world-ps5 {
     position: absolute; inset: 0;
     background:
-      linear-gradient(90deg, rgba(5,7,12,.88) 0%, rgba(5,7,12,.35) 48%, rgba(5,7,12,.7) 100%),
-      url("ui/ps5-orbital-hero.png") 70% 42% / cover no-repeat;
-    mix-blend-mode: lighten;
-    opacity: .85;
+      linear-gradient(90deg, rgba(5,7,12,.82) 0%, rgba(5,7,12,.2) 52%, rgba(5,7,12,.65) 100%),
+      url("ui/ps5-orbital-hero.png") 72% 40% / cover no-repeat;
+    opacity: .9;
     animation: worldDrift 30s ease-in-out infinite alternate;
   }
+  /* Primary imagination layer: WebKit → kernel flux */
   .world-flux {
     position: absolute; inset: 0;
-    background: url("ui/webkit-kernel-flux.png") center / cover no-repeat;
-    mix-blend-mode: screen; opacity: .22;
-    animation: fluxBreathe 10s ease-in-out infinite alternate;
+    background:
+      radial-gradient(ellipse 70% 60% at 55% 45%, transparent 20%, rgba(5,7,12,.35) 100%),
+      url("ui/webkit-kernel-flux.png") 45% 50% / cover no-repeat;
+    mix-blend-mode: screen;
+    opacity: .72;
+    animation: fluxBreathe 8s ease-in-out infinite alternate;
+  }
+  .world-flux-soft {
+    position: absolute; inset: 0;
+    background: url("ui/webkit-kernel-flux.png") 60% 40% / 120% auto no-repeat;
+    mix-blend-mode: soft-light;
+    opacity: .45;
+    animation: fluxPan 22s ease-in-out infinite alternate;
+  }
+  /* Terminator red targeting wash */
+  .world-terminator {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(circle at 18% 42%, rgba(255, 40, 40, .28), transparent 32%),
+      radial-gradient(circle at 78% 38%, rgba(255, 30, 30, .12), transparent 28%),
+      linear-gradient(115deg, rgba(120, 0, 0, .18), transparent 40%);
+    mix-blend-mode: screen;
+    animation: terminatorPulse 3.2s ease-in-out infinite;
+  }
+  .world-terminator::after {
+    content: "";
+    position: absolute;
+    left: 8%; top: 28%;
+    width: min(22vw, 180px); height: min(22vw, 180px);
+    border: 2px solid rgba(255, 60, 60, .45);
+    border-radius: 50%;
+    box-shadow: 0 0 0 14px rgba(255, 40, 40, .08), inset 0 0 30px rgba(255, 40, 40, .15);
+    animation: reticleSpin 14s linear infinite;
   }
   #matrix {
-    position: absolute; inset: 0; width: 100%; height: 100%; opacity: .22;
+    position: absolute; inset: 0; width: 100%; height: 100%; opacity: .18;
   }
   .scanlines {
     position: absolute; inset: 0;
     background: repeating-linear-gradient(
       to bottom, transparent 0, transparent 2px,
       rgba(155,232,255,.035) 2px, rgba(155,232,255,.035) 3px);
-    opacity: .5;
+    opacity: .45;
   }
 
   /* ===== INTERACTIVE ARTIFACTS ===== */
@@ -106,10 +136,12 @@
     position: absolute; z-index: 3;
     right: 6%; top: 16%;
     width: min(46vw, 460px); height: min(34vw, 300px);
-    border: 1px solid rgba(155,232,255,.35);
+    border: 1px solid rgba(155,232,255,.4);
     border-radius: 16px;
-    background: rgba(4, 10, 18, .72);
-    box-shadow: 0 0 50px rgba(155,232,255,.12), inset 0 0 40px rgba(0,0,0,.35);
+    background:
+      linear-gradient(160deg, rgba(4, 12, 22, .55), rgba(4, 10, 18, .82)),
+      url("ui/webkit-kernel-flux.png") center / cover no-repeat;
+    box-shadow: 0 0 50px rgba(155,232,255,.16), 0 0 30px rgba(255, 40, 40, .08), inset 0 0 40px rgba(0,0,0,.35);
     transform: perspective(900px) rotateY(-16deg) rotateX(5deg);
     overflow: hidden;
     pointer-events: none;
@@ -382,7 +414,16 @@
     from { transform: scale(1.04) translate(0,0); }
     to { transform: scale(1.1) translate(-1.2%, 1%); }
   }
-  @keyframes fluxBreathe { from { opacity: .14; } to { opacity: .3; } }
+  @keyframes fluxBreathe { from { opacity: .55; } to { opacity: .85; } }
+  @keyframes fluxPan {
+    from { transform: scale(1.05) translate(0, 0); }
+    to { transform: scale(1.15) translate(-2%, 1.5%); }
+  }
+  @keyframes terminatorPulse {
+    0%,100% { opacity: .55; }
+    50% { opacity: .95; }
+  }
+  @keyframes reticleSpin { to { transform: rotate(360deg); } }
   @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
   @keyframes slideIn { to { opacity: 1; transform: translateX(0); } }
   @keyframes riseIn {
@@ -392,11 +433,13 @@
   @keyframes charge { to { width: 80%; } }
 
   @media (max-width: 900px) {
-    .code-overlay, .artifact { display: none; }
+    .code-overlay, .artifact, .world-terminator::after { display: none; }
     .world-ps5 { background-position: 78% 40%; }
+    .world-flux { opacity: .55; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .world-ps5, .world-flux, #matrix, .initiate .charge { animation: none !important; }
+    .world-ps5, .world-flux, .world-flux-soft, .world-terminator, .world-terminator::after,
+    #matrix, .initiate .charge { animation: none !important; }
   }
 </style>
 </head>
@@ -405,6 +448,8 @@
     <div class="world-horizon"></div>
     <div class="world-ps5"></div>
     <div class="world-flux"></div>
+    <div class="world-flux-soft"></div>
+    <div class="world-terminator"></div>
     <canvas id="matrix"></canvas>
     <div class="scanlines"></div>
     <div class="code-overlay">
@@ -457,7 +502,7 @@
 
       <div class="cta-row">
         <a id="start" class="initiate"
-           href="slopkit/poops.html?go=1&amp;auto=1&amp;trigger=netcontrol&amp;payload=1&amp;v=22"
+           href="slopkit/poops.html?go=1&amp;auto=1&amp;trigger=netcontrol&amp;payload=1&amp;v=23"
            tabindex="0"><span>START JAILBREAK</span></a>
         <a class="ghost" href="#map">See the service map</a>
         <div class="meta">Then auto-injects <b>pldmgr.elf</b></div>
@@ -538,7 +583,7 @@
         <h2>Ready to jailbreak?</h2>
         <p>One tap starts the full chain and auto-launches Payload Manager on a successful run.</p>
       </div>
-      <a class="initiate" href="slopkit/poops.html?go=1&amp;auto=1&amp;trigger=netcontrol&amp;payload=1&amp;v=22"><span>START JAILBREAK</span></a>
+      <a class="initiate" href="slopkit/poops.html?go=1&amp;auto=1&amp;trigger=netcontrol&amp;payload=1&amp;v=23"><span>START JAILBREAK</span></a>
     </section>
   </div>
 
