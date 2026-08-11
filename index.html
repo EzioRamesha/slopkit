@@ -7,6 +7,7 @@
 <link rel="preload" href="ui/ps5-orbital-hero.png" as="image">
 <link rel="preload" href="ui/webkit-kernel-flux.png" as="image">
 <link rel="preload" href="ui/horizon-cyber-bg.png" as="image">
+<link rel="preload" href="ui/tamil-scifi-logo.png" as="image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+Tamil:wght@600;700;800&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
@@ -189,84 +190,64 @@
   }
   .brand-lock {
     position: relative;
-    display: inline-flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-    padding: 18px 22px 16px;
+    display: inline-block;
+    max-width: min(560px, 94vw);
+    padding: 0;
     isolation: isolate;
   }
-  .brand-lock::before,
+  .brand-lock::before {
+    content: "";
+    position: absolute;
+    inset: -6% -4%;
+    border-radius: 8px;
+    pointer-events: none;
+    background:
+      linear-gradient(90deg, var(--ice), transparent 30%, transparent 70%, var(--amber)) top / 100% 1px no-repeat,
+      linear-gradient(90deg, var(--signal), transparent 30%, transparent 70%, var(--magenta)) bottom / 100% 1px no-repeat;
+    box-shadow: 0 0 40px rgba(155,232,255,.12);
+    animation: brandFrame 4s ease-in-out infinite;
+  }
   .brand-lock::after {
     content: "";
     position: absolute;
+    left: 8%; right: 8%; height: 2px;
+    top: 12%;
+    background: linear-gradient(90deg, transparent, rgba(155,232,255,.85), rgba(255,179,71,.7), transparent);
+    animation: brandScan 2.6s linear infinite;
     pointer-events: none;
-  }
-  /* HUD corner brackets */
-  .brand-lock::before {
-    inset: 0;
-    border: 1px solid rgba(155,232,255,.35);
-    border-radius: 4px;
-    box-shadow:
-      0 0 24px rgba(155,232,255,.12),
-      inset 0 0 30px rgba(155,232,255,.05);
-    background:
-      linear-gradient(90deg, var(--ice), var(--ice)) top left / 28px 2px no-repeat,
-      linear-gradient(180deg, var(--ice), var(--ice)) top left / 2px 28px no-repeat,
-      linear-gradient(90deg, var(--amber), var(--amber)) top right / 28px 2px no-repeat,
-      linear-gradient(180deg, var(--amber), var(--amber)) top right / 2px 28px no-repeat,
-      linear-gradient(90deg, var(--signal), var(--signal)) bottom left / 28px 2px no-repeat,
-      linear-gradient(180deg, var(--signal), var(--signal)) bottom left / 2px 28px no-repeat,
-      linear-gradient(90deg, var(--magenta), var(--magenta)) bottom right / 28px 2px no-repeat,
-      linear-gradient(180deg, var(--magenta), var(--magenta)) bottom right / 2px 28px no-repeat,
-      rgba(6,12,22,.35);
-  }
-  .brand-lock::after {
-    left: 12px; right: 12px; top: 0; height: 2px;
-    background: linear-gradient(90deg, transparent, var(--ice), var(--amber), transparent);
-    animation: brandScan 2.8s linear infinite;
-    opacity: .85;
+    z-index: 2;
   }
   .brand {
     position: relative;
     z-index: 1;
     margin: 0;
-    font-family: "Noto Sans Tamil", "Latha", "Tamil MN", sans-serif;
-    font-weight: 800;
-    font-size: clamp(56px, 14vw, 120px);
-    letter-spacing: .06em;
-    line-height: 1.15;
-    color: transparent;
-    background: linear-gradient(115deg, #eafcff 10%, var(--ice) 35%, #fff 48%, var(--amber) 62%, var(--signal) 88%);
-    background-size: 200% 100%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    filter: drop-shadow(0 0 12px rgba(155,232,255,.45)) drop-shadow(0 0 28px rgba(255,179,71,.2));
-    animation: brandShine 5s ease-in-out infinite, brandPulse 4s ease-in-out infinite;
+    line-height: 0;
   }
-  .brand-sub {
-    position: relative;
-    z-index: 1;
-    font-family: Orbitron, system-ui, sans-serif;
-    font-size: 10px;
-    letter-spacing: .32em;
-    text-transform: uppercase;
-    color: rgba(155,232,255,.75);
+  .brand img {
+    display: block;
+    width: 100%;
+    height: auto;
+    filter: drop-shadow(0 0 18px rgba(155,232,255,.35)) drop-shadow(0 0 36px rgba(255,179,71,.18));
+    animation: brandPulse 4s ease-in-out infinite;
   }
-  .brand-sub b { color: var(--amber); font-weight: 700; }
-  @keyframes brandShine {
-    0%,100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
+  .brand-sr {
+    position: absolute;
+    width: 1px; height: 1px;
+    overflow: hidden; clip: rect(0,0,0,0);
   }
   @keyframes brandPulse {
-    0%,100% { filter: drop-shadow(0 0 12px rgba(155,232,255,.4)) drop-shadow(0 0 24px rgba(255,179,71,.18)); }
-    50% { filter: drop-shadow(0 0 22px rgba(155,232,255,.65)) drop-shadow(0 0 36px rgba(255,179,71,.32)); }
+    0%,100% { filter: drop-shadow(0 0 14px rgba(155,232,255,.3)) drop-shadow(0 0 28px rgba(255,179,71,.15)); transform: scale(1); }
+    50% { filter: drop-shadow(0 0 26px rgba(155,232,255,.55)) drop-shadow(0 0 42px rgba(255,179,71,.28)); transform: scale(1.012); }
   }
   @keyframes brandScan {
-    0% { top: 8%; opacity: 0; }
-    15% { opacity: .9; }
-    85% { opacity: .9; }
+    0% { top: 10%; opacity: 0; }
+    20% { opacity: .9; }
+    80% { opacity: .9; }
     100% { top: 88%; opacity: 0; }
+  }
+  @keyframes brandFrame {
+    0%,100% { opacity: .55; }
+    50% { opacity: 1; }
   }
   .lede {
     margin: 0; max-width: 34em;
@@ -692,8 +673,10 @@
     <section class="hero">
       <div class="eyebrow">PS5 jailbreak host · FW 9.00–12.00</div>
       <div class="brand-lock">
-        <h1 class="brand">தமிழ்</h1>
-        <div class="brand-sub">NODE // <b>TAMIL</b> // SCI-FI HOST</div>
+        <h1 class="brand">
+          <img src="ui/tamil-scifi-logo.png" width="560" height="315" alt="தமிழ்">
+          <span class="brand-sr">தமிழ்</span>
+        </h1>
       </div>
       <p class="lede">
         Open this site in the PS5 browser. It runs the WebKit → kernel exploit,
