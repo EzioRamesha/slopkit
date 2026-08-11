@@ -280,27 +280,28 @@
     <div class="membrane"></div>
   </div>
 
-  <div class="corner tl">Console link<b id="hudLink">latent</b></div>
+  <div class="corner tl">PS5 browser<b id="hudLink">ready</b></div>
   <div class="corner tr">Local clock<b id="clock">00:00:00</b></div>
 
   <main class="stage">
-    <div class="eyebrow">PlayStation 5 · WebKit membrane · kernel tide</div>
+    <div class="eyebrow">PS5 jailbreak host · FW 9.00–12.00</div>
     <h1 class="brand">SLOPKIT</h1>
     <p class="lede">
-      In 2060 the browser is a door. This room opens it — scans the console,
-      thins the WebKit surface, then pours Payload Manager through the gap.
+      Host this page on the PS5 browser to run the WebKit → kernel exploit,
+      load elfldr, then auto-launch Payload Manager so you can send FTP, shell,
+      and other ELFs without a USB stick.
     </p>
 
     <div class="stream" aria-live="polite">
-      <div class="kicker">Exploit weather</div>
+      <div class="kicker">Pipeline status</div>
       <div id="statusFeed"></div>
     </div>
 
     <div class="cta-row">
       <a id="start" class="initiate"
-         href="slopkit/poops.html?go=1&amp;auto=1&amp;trigger=netcontrol&amp;payload=1&amp;v=20"
-         tabindex="0"><span>OPEN THE DOOR</span></a>
-      <div class="meta">Auto path · <b>pldmgr</b> · FW 9.00–12.00</div>
+         href="slopkit/poops.html?go=1&amp;auto=1&amp;trigger=netcontrol&amp;payload=1&amp;v=21"
+         tabindex="0"><span>START JAILBREAK</span></a>
+      <div class="meta">Then auto-injects <b>pldmgr.elf</b></div>
     </div>
   </main>
 
@@ -313,14 +314,14 @@
   try { start.focus(); } catch (e) {}
 
   var messages = [
-    { t: "PS5 silhouette locked in diagnostic light", c: "hot" },
-    { t: "WebKit membrane shimmering — thickness unknown", c: "dim" },
-    { t: "SerializedScriptValue weather forming", c: "hot" },
-    { t: "ROP lattice dreaming under the browser", c: "dim" },
-    { t: "Kernel tide waiting past the glass", c: "ok" },
-    { t: "elfldr harbor quiet on 127.0.0.1:9021", c: "dim" },
-    { t: "pldmgr.elf sealed for the first flood", c: "ok" },
-    { t: "Operator presence detected — door can open", c: "hot" }
+    { t: "Target: PS5 system browser (WebKit)", c: "hot" },
+    { t: "Step 1 — userland R/W via WebKit bug", c: "dim" },
+    { t: "Step 2 — ROP + kernel stages (poops)", c: "hot" },
+    { t: "Step 3 — spawn elfldr on port 9021", c: "dim" },
+    { t: "Step 4 — auto-send payloads/pldmgr.elf", c: "ok" },
+    { t: "Supported firmware: 9.00 through 12.00", c: "dim" },
+    { t: "After success: Payload Manager on console", c: "ok" },
+    { t: "Press START JAILBREAK when the PS5 is ready", c: "hot" }
   ];
   var idx = 0;
   var lines = [];
@@ -356,10 +357,10 @@
     if (start.classList.contains("charging")) { e.preventDefault(); return; }
     e.preventDefault();
     start.classList.add("charging");
-    hudLink.textContent = "opening";
+    hudLink.textContent = "running";
     lines = [
-      { t: "Door pressure rising…", c: "hot" },
-      { t: "Handing the room to the exploit deck", c: "ok" }
+      { t: "Arming exploit chain…", c: "hot" },
+      { t: "Opening jailbreak deck", c: "ok" }
     ];
     paint();
     var bar = document.createElement("i");
