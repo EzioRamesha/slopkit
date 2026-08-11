@@ -38,5 +38,11 @@ if [[ "$HDR" != "7f454c46" ]]; then
 fi
 mv "$TMP" "$OUT"
 BYTES="$(wc -c < "$OUT" | tr -d ' ')"
+MAX=$((0x400000))
+if (( BYTES > MAX )); then
+  echo "[sync-pldmgr] ERROR: ${BYTES} bytes exceeds PAYLOAD_MAX_SIZE (${MAX})" >&2
+  rm -f "$OUT"
+  exit 1
+fi
 echo "[sync-pldmgr] wrote ${OUT} (${BYTES} bytes)"
 echo "[sync-pldmgr] commit with: git add payloads/pldmgr.elf && git commit -m \"chore(payloads): bump pldmgr to ${TAG}\""
