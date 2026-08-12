@@ -59,6 +59,10 @@
   th,td{border-bottom:1px solid #222;padding:4px 6px;text-align:left}
   #arm{margin:12px 0;padding:10px;border:1px solid #333}
   #nav a{display:inline-block;margin:4px 8px 4px 0;color:#7eb6ff}
+  #credits{margin:18px 0 28px;padding-top:12px;border-top:1px solid #222;
+    font-size:11px;line-height:1.55;color:#6a7380}
+  #credits a{color:#8aa4c8;text-decoration:none}
+  #credits .by{color:#9ab;margin-bottom:6px}
 </style>
 </head>
 <body class="quiet">
@@ -119,6 +123,14 @@
   <button type="button" id="forceAfterReboot">I REBOOTED — START JAILBREAK</button>
   <div id="nav"></div>
   <div id="arm" hidden>Not armed. Redirecting…</div>
+  <footer id="credits">
+    <div class="by">Host by <strong>Ramesh</strong> · EzioRamesha</div>
+    Credits: <a href="https://github.com/jordyidk/slopkit" target="_blank" rel="noopener">jordyidk/slopkit</a>
+    · original research: Egy, Sonic, Yenyen, Zeco, Gezine, EchoStretch, Ufm42, TheFloW, John Tornblom, Flatz, PS5 R&amp;D Discord
+    · <a href="https://github.com/EchoStretch/kstuff-lite" target="_blank" rel="noopener">EchoStretch/kstuff-lite</a>
+    · <a href="https://github.com/itsPLK/ps5-payload-manager" target="_blank" rel="noopener">itsPLK/ps5-payload-manager</a>
+    · <a href="https://github.com/sleirsgoevy" target="_blank" rel="noopener">sleirsgoevy</a>
+  </footer>
 </div>
 <div id="console" hidden></div>
 
@@ -161,7 +173,7 @@ const CLEARLATCH = Q.get("clear") === "1";
 /* Lite host: opening this page without arm params auto-starts JB */
 if (!ARMED && !CLEARLATCH) {
     location.replace(location.pathname
-        + "?go=1&auto=1&trigger=netcontrol&payload=1&v=lite6");
+        + "?go=1&auto=1&trigger=netcontrol&payload=1&v=lite7");
     throw new Error("redirecting to armed URL");
 }
 
@@ -1977,7 +1989,7 @@ async function main() {
                 forceBtn.onclick = function () {
                     dirtyClear("user-rebooted");
                     location.replace(location.pathname
-                        + "?go=1&auto=1&trigger=netcontrol&payload=1&force=1&v=lite6");
+                        + "?go=1&auto=1&trigger=netcontrol&payload=1&force=1&v=lite7");
                 };
             }
             return;
