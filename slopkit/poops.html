@@ -51,8 +51,8 @@
   #payloadMenu .payloadTile[data-state="sent"]{border-color:#2a7;color:#7dffb2}
   #payloadMenu .payloadTile[data-state="failed"]{border-color:#a33;color:#ff8a9a}
   #payloadMenu .payloadTile img,.legacy,.stage-rail,#reactor,.field,.scan,.beam,.brand-row,#dt{display:none!important}
-  #retryInject{display:none;margin:10px 0;padding:10px 14px;background:#111;color:#ff8a9a;border:1px solid #a33}
-  #retryInject.on{display:inline-block}
+  #retryInject,#forceAfterReboot{display:none;margin:10px 0;padding:10px 14px;background:#111;color:#ff8a9a;border:1px solid #a33}
+  #retryInject.on,#forceAfterReboot.on{display:inline-block}
   .drawer-toggle{margin:8px 0;padding:6px 10px;background:#111;color:#9ab;border:1px solid #333}
   #deepDrawer{display:none}#deepDrawer.on{display:block}
   table{width:100%;border-collapse:collapse;font-size:12px}
@@ -110,6 +110,7 @@
        data-state="default"><span>Web</span><span class="meta">aux</span></a>
   </div>
   <button type="button" id="retryInject">RETRY PLDMGR INJECT</button>
+  <button type="button" id="forceAfterReboot">I REBOOTED — START JAILBREAK</button>
   <div id="nav"></div>
   <div id="arm" hidden>Not armed. Redirecting…</div>
 </div>
@@ -154,7 +155,7 @@ const CLEARLATCH = Q.get("clear") === "1";
 /* Lite host: opening this page without arm params auto-starts JB */
 if (!ARMED && !CLEARLATCH) {
     location.replace(location.pathname
-        + "?go=1&auto=1&trigger=netcontrol&payload=1&v=lite2");
+        + "?go=1&auto=1&trigger=netcontrol&payload=1&v=lite3");
     throw new Error("redirecting to armed URL");
 }
 
@@ -166,9 +167,13 @@ const MAX_ATTEMPTS = parseInt(Q.get("max") || "0", 10) || 0;
 const CORE_OVERRIDE = Q.has("core") ? parseInt(Q.get("core"), 10) : -1;
 /** When prior run already spawned elfldr, skip kernel ladder and open payload menu. */
 let continueMode = Q.get("continue") === "1";
+/** After a real console reboot, user can ?force=1 to clear dirty-boot and re-JB. */
+const FORCE = Q.get("force") === "1";
 
 const PROGRESS_KEY = "slopkit-poops:next";
 const RUNLOG_KEY = "slopkit-poops:last";
+/** Survives browser close (unlike sessionStorage). Cleared by ?force=1 / ?clear=1. */
+const DIRTY_KEY = "slopkit-poops:dirty-boot";
 const REV = "slopkit-poops-28-clean-success-menu";
 
 function storeGet(k) {
@@ -181,8 +186,55 @@ function storeJson(k) {
     if (!raw) return null;
     try { return JSON.parse(raw); } catch { return null; }
 }
+function dirtyRead() {
+    try {
+        const raw = localStorage.getItem(DIRTY_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw);
+    } catch {
+        return null;
+    }
+}
+/**
+ * Mark this console boot as already jailbroken / unsafe to re-run the ladder.
+ * @param {string} reason
+ */
+function dirtySet(reason) {
+    try {
+        localStorage.setItem(DIRTY_KEY, JSON.stringify({
+            v: 1,
+            elfldr: 1,
+            ts: Date.now(),
+            reason: String(reason || "jb").slice(0, 80),
+            rev: REV
+        }));
+    } catch { }
+    try {
+        if (typeof flushMark === "function")
+            flushMark("DIRTY-SET", String(reason || "jb").slice(0, 80));
+    } catch { }
+}
+/**
+ * Clear dirty-boot flag after a real reboot (or operator clear).
+ * @param {string} why
+ */
+function dirtyClear(why) {
+    try { localStorage.removeItem(DIRTY_KEY); } catch { }
+    try {
+        if (typeof flushMark === "function")
+            flushMark("DIRTY-CLEAR", String(why || "").slice(0, 80));
+    } catch { }
+}
 const STALLED_AT = storeGet(PROGRESS_KEY);
 const LAST_RUN = storeJson(RUNLOG_KEY);
+let DIRTY = dirtyRead();
+if (FORCE) {
+    dirtyClear("force=1");
+    DIRTY = null;
+    continueMode = false;
+} else if (!continueMode && DIRTY && DIRTY.elfldr) {
+    continueMode = true;
+}
 
 const TRIGGER = (() => {
     const t = (Q.get("trigger") || "none").toLowerCase();
@@ -455,8 +507,8 @@ async function sendPayloadToElfldr(name) {
     if (!payloadIsListed(name))
         throw new Error("payload is not listed in this menu");
 
-    const response = await fetch("../payloads/" + encodeURIComponent(name),
-        { cache: "no-store" });
+    // Allow HTTP cache — re-fetching 2MB+ ELFs every inject burns PS5 WebKit RAM.
+    const response = await fetch("../payloads/" + encodeURIComponent(name));
     if (!response.ok)
         throw new Error("payload fetch failed: HTTP " + response.status);
     const bytes = new Uint8Array(await response.arrayBuffer());
@@ -1112,7 +1164,7 @@ async function preflight() {
 
     let verdict = "ok";
     try {
-        const r = await fetch("rop_slave.js", { cache: "no-store" });
+        const r = await fetch("rop_slave.js");
         if (!r.ok) verdict = "http-" + r.status;
     } catch (err) { verdict = "fetch-threw"; }
     if (verdict === "ok") {
@@ -1565,10 +1617,14 @@ async function runLadder() {
             + passed + " PASS", "ok");
 
     if (payloadSuccess) {
+        dirtySet("payload-success");
         flushMark("ELFLDR-MENU-INPAGE",
             "no-navigation-parked-racers-and-fds-remain-owned-port=9021");
         showPayloadMenu();
         autoInjectPldmgr();
+    } else if (mustReboot && (failed > 0 || aborted || (engine && engine.triggered))) {
+        // Kernel may be dirty even without elfldr — block blind re-JB after browser close.
+        dirtySet("reboot-required");
     }
 }
 
@@ -1736,17 +1792,29 @@ async function main() {
         if (elfldrUp) {
             elfldrSpawned = true;
             continueMode = true;
+            dirtySet("elfldr-probe");
             stage("ALREADY JAILBROKEN — elfldr live — payload menu only (no re-JB)", "ok");
             flushMark("CONTINUE-OK", "elfldr-up=1");
             showPayloadMenu();
             // Manual payloads only; do not re-auto-inject (avoids double pldmgr).
             return;
         }
-        if (continueMode) {
-            stage("previous jailbreak recorded but elfldr is not listening — REBOOT, then run again", "bad");
-            flushMark("CONTINUE-NO-ELFLDR", "reboot-required");
-            showVerdict(true, "REBOOT REQUIRED — cannot continue without elfldr on :"
-                + PAYLOAD_PORT + "\n");
+        if (continueMode || (DIRTY && DIRTY.elfldr)) {
+            stage("previous jailbreak / dirty boot recorded but elfldr is not listening — REBOOT, then tap I REBOOTED", "bad");
+            flushMark("CONTINUE-NO-ELFLDR", "reboot-required-dirty="
+                + ((DIRTY && DIRTY.reason) || "continue"));
+            showVerdict(true, "REBOOT REQUIRED — elfldr not on :" + PAYLOAD_PORT
+                + "\nDo NOT re-run jailbreak on this boot."
+                + "\nAfter a real console reboot, tap I REBOOTED.\n");
+            const forceBtn = document.getElementById("forceAfterReboot");
+            if (forceBtn) {
+                forceBtn.classList.add("on");
+                forceBtn.onclick = function () {
+                    dirtyClear("user-rebooted");
+                    location.replace(location.pathname
+                        + "?go=1&auto=1&trigger=netcontrol&payload=1&force=1&v=lite3");
+                };
+            }
             return;
         }
 
@@ -1812,11 +1880,14 @@ async function main() {
 async function clearMain() {
     const before = await latch.read();
     const after = await latch.clear();
+    dirtyClear("clear=1");
+    DIRTY = null;
     stage(before.set
         ? "one-shot latch CLEARED. It was set by: " + (before.detail || "?")
         : "the latch was not set; nothing to clear.", "ok");
     summaryEl.textContent =
         "before: " + JSON.stringify(before) + "\nafter:  " + JSON.stringify(after)
+        + "\ndirty-boot flag cleared"
         + (ARMED ? "\n\n?go=1 was present on this URL and was IGNORED: ?clear=1 "
             + "is checked first and returns." : "")
         + "\n\nNOTHING else was done";
@@ -1867,15 +1938,22 @@ function lastRunText() {
     flushMark("LATCH-READ", "set=" + (l.set ? 1 : 0)
         + "-detail=" + clean(l.detail || ""));
 
-    // ?auto=1: do NOT blindly re-run JB if last run already spawned elfldr.
-    const priorElfldr = !!(LAST_RUN && LAST_RUN.elfldr);
-    if (!continueMode && priorElfldr && AUTOCLEAR) {
+    // ?auto=1: do NOT blindly re-run JB if last run / dirty-boot says already JB.
+    const priorElfldr = !!(LAST_RUN && LAST_RUN.elfldr)
+        || !!(DIRTY && DIRTY.elfldr);
+    if (!continueMode && priorElfldr && AUTOCLEAR && !FORCE) {
         continueMode = true;
-        flushMark("LATCH-CONTINUE", "prior-elfldr=1-no-latch-gate");
+        flushMark("LATCH-CONTINUE", "prior-elfldr=1-dirty="
+            + ((DIRTY && DIRTY.reason) || "session"));
         stage("prior jailbreak recorded — continue mode (probe elfldr, skip re-JB)");
     }
     if (l.set && AUTOCLEAR) {
-        if (priorElfldr || continueMode) {
+        if (FORCE) {
+            flushMark("LATCH-AUTOCLEAR", "force=1-" + clean(l.detail || ""));
+            await latch.clear();
+            l.set = false;
+            stage("?force=1 cleared the latch after reboot");
+        } else if (priorElfldr || continueMode) {
             continueMode = true;
             flushMark("LATCH-CONTINUE", "prior-elfldr=" + (priorElfldr ? 1 : 0)
                 + "-skip-full-ladder=1");
