@@ -154,7 +154,7 @@ const CLEARLATCH = Q.get("clear") === "1";
 /* Lite host: opening this page without arm params auto-starts JB */
 if (!ARMED && !CLEARLATCH) {
     location.replace(location.pathname
-        + "?go=1&auto=1&trigger=netcontrol&payload=1&v=lite1");
+        + "?go=1&auto=1&trigger=netcontrol&payload=1&v=lite2");
     throw new Error("redirecting to armed URL");
 }
 
@@ -164,6 +164,8 @@ const ONLY = (Q.get("only") || "").split(",").map(s => s.trim()).filter(Boolean)
 const FILTERED_RUN = ONLY.length > 0 || FROM !== "";
 const MAX_ATTEMPTS = parseInt(Q.get("max") || "0", 10) || 0;
 const CORE_OVERRIDE = Q.has("core") ? parseInt(Q.get("core"), 10) : -1;
+/** When prior run already spawned elfldr, skip kernel ladder and open payload menu. */
+let continueMode = Q.get("continue") === "1";
 
 const PROGRESS_KEY = "slopkit-poops:next";
 const RUNLOG_KEY = "slopkit-poops:last";
@@ -1539,6 +1541,7 @@ async function runLadder() {
         stoppedAt: aborted || "", filtered: FILTERED_RUN,
         pass: passed, fail: failed, skip: skipped,
         reboot: mustReboot,
+        elfldr: !!payloadSuccess,
         triggered: engine ? engine.triggered : "",
         corrupt: engine ? engine.corrupt : "",
         triplets: engine && engine.TW.tripletsValid()
@@ -1693,16 +1696,59 @@ async function bootPrimitiveAndChain() {
     await probeErrnoConvention();
 }
 
+async function probeElfldrListening() {
+    preparePayloadSender();
+    let fd = -1;
+    try {
+        let result = await sys(SYS_SOCKET, 2, 1, 0);
+        if (result.failed || result.s32 < 0) return false;
+        fd = result.s32;
+        track(fd);
+        result = await sys(SYS_CONNECT, fd, payloadSockaddrStore.ptr, 0x10);
+        const ok = !result.failed && result.s32 === 0;
+        const closeRes = await sys(SYS_CLOSE, fd);
+        if (!closeRes.failed && closeRes.s32 === 0) untrack(fd);
+        flushMark("ELFLDR-PROBE", "up=" + (ok ? 1 : 0));
+        return ok;
+    } catch (e) {
+        flushMark("ELFLDR-PROBE-ERR",
+            clean(e && e.message ? e.message : e));
+        return false;
+    }
+}
+
 async function main() {
     flushMark("POOPS-BOOT", "rev=" + REV + "-trigger=" + cfg.trigger
         + "-burn=" + cfg.burn + "-sockets=" + cfg.sockets
         + "-attempts=" + cfg.attempts + "-from=" + (FROM || "none")
         + "-only=" + (ONLY.join(".") || "none")
+        + "-continue=" + (continueMode ? 1 : 0)
         + "-stalledAt=" + (STALLED_AT || "none"));
     lockNav(true);
     runInFlight = true;
     try {
         await bootChain();
+
+        // Ground truth: if elfldr already listens on :9021, never re-run the
+        // kernel ladder (already-JB / refresh / accidental re-open).
+        stage("checking whether elfldr is already on 127.0.0.1:" + PAYLOAD_PORT);
+        const elfldrUp = await probeElfldrListening();
+        if (elfldrUp) {
+            elfldrSpawned = true;
+            continueMode = true;
+            stage("ALREADY JAILBROKEN — elfldr live — payload menu only (no re-JB)", "ok");
+            flushMark("CONTINUE-OK", "elfldr-up=1");
+            showPayloadMenu();
+            // Manual payloads only; do not re-auto-inject (avoids double pldmgr).
+            return;
+        }
+        if (continueMode) {
+            stage("previous jailbreak recorded but elfldr is not listening — REBOOT, then run again", "bad");
+            flushMark("CONTINUE-NO-ELFLDR", "reboot-required");
+            showVerdict(true, "REBOOT REQUIRED — cannot continue without elfldr on :"
+                + PAYLOAD_PORT + "\n");
+            return;
+        }
 
         await chooseCore();
 
@@ -1821,14 +1867,33 @@ function lastRunText() {
     flushMark("LATCH-READ", "set=" + (l.set ? 1 : 0)
         + "-detail=" + clean(l.detail || ""));
 
-    // ?auto=1 clears the latch instead of asking; reboot between runs
+    // ?auto=1: do NOT blindly re-run JB if last run already spawned elfldr.
+    const priorElfldr = !!(LAST_RUN && LAST_RUN.elfldr);
+    if (!continueMode && priorElfldr && AUTOCLEAR) {
+        continueMode = true;
+        flushMark("LATCH-CONTINUE", "prior-elfldr=1-no-latch-gate");
+        stage("prior jailbreak recorded — continue mode (probe elfldr, skip re-JB)");
+    }
     if (l.set && AUTOCLEAR) {
-        flushMark("LATCH-AUTOCLEAR", clean(l.detail || ""));
-        await latch.clear();
-        stage("latch was set and ?auto=1 cleared it, set by: "
-            + (l.detail || "(no detail)")
-            + "\nassumes the console has been rebooted since that run.");
-        l.set = false;
+        if (priorElfldr || continueMode) {
+            continueMode = true;
+            flushMark("LATCH-CONTINUE", "prior-elfldr=" + (priorElfldr ? 1 : 0)
+                + "-skip-full-ladder=1");
+            stage("prior jailbreak detected — continue mode (payloads only, no re-JB)");
+            // Keep latch stored; clear local gate so entry proceeds into main().
+            l.set = false;
+        } else if (LAST_RUN && LAST_RUN.reboot && (LAST_RUN.fail > 0 || LAST_RUN.stoppedAt)) {
+            flushMark("LATCH-KEEP-REBOOT", clean(LAST_RUN.stoppedAt || "fail"));
+            stage("last run needs a REBOOT — not auto-clearing the latch", "bad");
+            // leave l.set true → latched return below
+        } else {
+            flushMark("LATCH-AUTOCLEAR", clean(l.detail || ""));
+            await latch.clear();
+            stage("latch was set and ?auto=1 cleared it, set by: "
+                + (l.detail || "(no detail)")
+                + "\nassumes the console has been rebooted since that run.");
+            l.set = false;
+        }
     }
 
     if (l.set) {
