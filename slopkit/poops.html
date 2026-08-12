@@ -159,7 +159,7 @@ const CLEARLATCH = Q.get("clear") === "1";
 /* Lite host: opening this page without arm params auto-starts JB */
 if (!ARMED && !CLEARLATCH) {
     location.replace(location.pathname
-        + "?go=1&auto=1&trigger=netcontrol&payload=1&v=lite4");
+        + "?go=1&auto=1&trigger=netcontrol&payload=1&v=lite5");
     throw new Error("redirecting to armed URL");
 }
 
@@ -763,7 +763,8 @@ async function sendPayloadInPlace(name, tile, opts) {
 
 let autoInjectStarted = false;
 /**
- * Auto chain: kstuff-lite (latest) then pldmgr.
+ * Auto chain: kstuff-lite (latest) then always attempt pldmgr.
+ * Kstuff failure does not skip pldmgr unless the sender is blocked.
  * @returns {Promise<void>}
  */
 async function autoInjectPayloads() {
@@ -787,10 +788,15 @@ async function autoInjectPayloads() {
     const kOk = await sendPayloadInPlace(KSTUFF_LITE_NAME, kTile, {
         remoteUrl: KSTUFF_LITE_REMOTE
     });
-    if (!kOk) {
-        setReactorState("inject-fail");
+    if (kOk) {
+        setStageChip("kstuff", "done");
+        flushMark("KSTUFF-AUTO-OK", "name=" + KSTUFF_LITE_NAME);
+        stage("KSTUFF-LITE OK — waiting " + AUTO_CHAIN_GAP_MS + "ms before PLDMGR", "ok");
+        await sleepMs(AUTO_CHAIN_GAP_MS);
+    } else {
         setStageChip("kstuff", "fail");
         if (payloadSenderBlocked) {
+            setReactorState("bad");
             stageEl.textContent = "KSTUFF BLOCKED — REBOOT REQUIRED";
             stageEl.className = "bad";
             if (retry) {
@@ -799,33 +805,31 @@ async function autoInjectPayloads() {
                 retry.disabled = true;
             }
             flushMark("KSTUFF-AUTO-BLOCKED", clean(payloadSenderBlocked));
-        } else {
-            stageEl.textContent = "KSTUFF-LITE INJECT FAILED — RETRY OR REBOOT";
-            stageEl.className = "bad";
-            showRetry("RETRY AUTO INJECT");
-            flushMark("KSTUFF-AUTO-FAIL", "name=" + KSTUFF_LITE_NAME);
+            return;
         }
-        return;
+        flushMark("KSTUFF-AUTO-FAIL", "name=" + KSTUFF_LITE_NAME
+            + "-continuing-pldmgr=1");
+        stage("KSTUFF-LITE failed — still injecting PLDMGR", "bad");
+        await sleepMs(400);
     }
-    setStageChip("kstuff", "done");
-    flushMark("KSTUFF-AUTO-OK", "name=" + KSTUFF_LITE_NAME);
-    stage("KSTUFF-LITE OK — waiting " + AUTO_CHAIN_GAP_MS + "ms before PLDMGR", "ok");
-    await sleepMs(AUTO_CHAIN_GAP_MS);
 
     setStageChip("pldmgr", "on");
     stage("INJECTING PLDMGR (waiting for :9021)", "");
-    flushMark("PLDMGR-AUTO-START", "name=pldmgr.elf-connectAttempts="
-        + PAYLOAD_CONNECT_ATTEMPTS);
+    flushMark("PLDMGR-AUTO-START", "name=pldmgr.elf-after-kstuff="
+        + (kOk ? 1 : 0) + "-connectAttempts=" + PAYLOAD_CONNECT_ATTEMPTS);
     const ok = await sendPayloadInPlace("pldmgr.elf",
         pTile || payloadMenuEl.getElementsByTagName("a")[0]);
     if (ok) {
         setReactorState("online");
         setStageChip("pldmgr", "done");
-        stageEl.textContent = "KSTUFF-LITE + PAYLOAD MANAGER ONLINE";
+        stageEl.textContent = kOk
+            ? "KSTUFF-LITE + PAYLOAD MANAGER ONLINE"
+            : "PAYLOAD MANAGER ONLINE (kstuff-lite failed)";
         stageEl.className = "ok";
         syncStageChips("pldmgr online", "ok");
-        flushMark("PLDMGR-AUTO-OK", "name=pldmgr.elf");
-        if (retry) retry.className = "";
+        flushMark("PLDMGR-AUTO-OK", "name=pldmgr.elf-kstuff=" + (kOk ? 1 : 0));
+        if (!kOk) showRetry("RETRY KSTUFF-LITE");
+        else if (retry) retry.className = "";
     } else if (payloadSenderBlocked) {
         setReactorState("bad");
         setStageChip("pldmgr", "fail");
@@ -1907,7 +1911,7 @@ async function main() {
                 forceBtn.onclick = function () {
                     dirtyClear("user-rebooted");
                     location.replace(location.pathname
-                        + "?go=1&auto=1&trigger=netcontrol&payload=1&force=1&v=lite4");
+                        + "?go=1&auto=1&trigger=netcontrol&payload=1&force=1&v=lite5");
                 };
             }
             return;
