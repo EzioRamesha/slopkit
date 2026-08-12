@@ -174,7 +174,7 @@ const CLEARLATCH = Q.get("clear") === "1";
 /* Lite host: opening this page without arm params auto-starts JB */
 if (!ARMED && !CLEARLATCH) {
     location.replace(location.pathname
-        + "?go=1&auto=1&trigger=netcontrol&payload=1&v=lite8");
+        + "?go=1&auto=1&trigger=netcontrol&payload=1&v=lite9");
     throw new Error("redirecting to armed URL");
 }
 
@@ -320,7 +320,7 @@ async function softRetryJailbreak(why) {
     params.set("trigger", cfg.trigger || "netcontrol");
     if (cfg.payload) params.set("payload", cfg.payload);
     params.set("retry", String(next));
-    params.set("v", "lite8");
+    params.set("v", "lite9");
     params.set("_", String(Date.now()));
     location.replace(location.pathname + "?" + params.toString());
     return true;
@@ -2080,7 +2080,7 @@ async function main() {
                 forceBtn.onclick = function () {
                     dirtyClear("user-rebooted");
                     location.replace(location.pathname
-                        + "?go=1&auto=1&trigger=netcontrol&payload=1&force=1&v=lite8");
+                        + "?go=1&auto=1&trigger=netcontrol&payload=1&force=1&v=lite9");
                 };
             }
             return;
