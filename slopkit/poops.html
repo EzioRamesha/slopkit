@@ -101,7 +101,9 @@
        data-remote="https://github.com/EchoStretch/kstuff-lite/releases/latest/download/kstuff.elf"
        data-state="default"><span>Kstuff Lite</span><span class="meta">auto first</span></a>
     <a class="payloadTile primary" href="#" data-name="pldmgr.elf" data-key="pldmgr"
-       data-state="default"><span>Payload Manager</span><span class="meta">auto</span></a>
+       data-release-api="https://api.github.com/repos/itsPLK/ps5-payload-manager/releases/latest"
+       data-asset-re="^pldmgr.*\\.elf$"
+       data-state="default"><span>Payload Manager</span><span class="meta">auto latest</span></a>
     <a class="payloadTile" href="#" data-name="ftpsrv-ps5.elf" data-key="ftp"
        data-state="default"><span>FTP</span><span class="meta">aux</span></a>
     <a class="payloadTile" href="#" data-name="gdbsrv-ps5.elf" data-key="gdb"
@@ -159,7 +161,7 @@ const CLEARLATCH = Q.get("clear") === "1";
 /* Lite host: opening this page without arm params auto-starts JB */
 if (!ARMED && !CLEARLATCH) {
     location.replace(location.pathname
-        + "?go=1&auto=1&trigger=netcontrol&payload=1&v=lite5");
+        + "?go=1&auto=1&trigger=netcontrol&payload=1&v=lite6");
     throw new Error("redirecting to armed URL");
 }
 
@@ -438,6 +440,11 @@ const PAYLOAD_MAX_SIZE = 0x400000;
 const KSTUFF_LITE_REMOTE =
     "https://github.com/EchoStretch/kstuff-lite/releases/latest/download/kstuff.elf";
 const KSTUFF_LITE_NAME = "kstuff-lite.elf";
+/** itsPLK Payload Manager — resolve asset name via releases API (pldmgr_vX.Y.Z.elf). */
+const PLDMGR_NAME = "pldmgr.elf";
+const PLDMGR_RELEASE_API =
+    "https://api.github.com/repos/itsPLK/ps5-payload-manager/releases/latest";
+const PLDMGR_ASSET_RE = /^pldmgr.*\.elf$/i;
 const AUTO_CHAIN_GAP_MS = 2000;
 let payloadSendStore = null;
 let payloadSockaddrStore = null;
@@ -505,13 +512,57 @@ function preparePayloadSender() {
 }
 
 /**
- * Load ELF bytes: optional remote URL first (latest release), then same-origin mirror.
- * GitHub release assets often fail CORS on PS5 — local payloads/kstuff-lite.elf is fallback.
+ * Resolve browser_download_url for the newest matching release asset.
+ * GitHub API allows CORS (*); the asset download itself often does not on PS5.
+ * @param {string} apiUrl releases/latest API URL
+ * @param {RegExp} assetRe
+ * @returns {Promise<string>}
+ */
+async function resolveGithubReleaseElf(apiUrl, assetRe) {
+    const response = await fetch(apiUrl, {
+        cache: "no-cache",
+        headers: { Accept: "application/vnd.github+json" }
+    });
+    if (!response.ok)
+        throw new Error("release api HTTP " + response.status);
+    const data = await response.json();
+    const assets = (data && data.assets) || [];
+    let hit = null;
+    for (let i = 0; i < assets.length; ++i) {
+        if (assetRe.test(assets[i].name)) {
+            hit = assets[i];
+            break;
+        }
+    }
+    if (!hit || !hit.browser_download_url)
+        throw new Error("no matching release asset");
+    flushMark("ELF-RELEASE-RESOLVE", "tag=" + clean(data.tag_name || "")
+        + "-asset=" + clean(hit.name) + "-bytes=" + (hit.size || 0));
+    return hit.browser_download_url;
+}
+
+/**
+ * Load ELF bytes: optional remote URL / GitHub latest first, then same-origin mirror.
  * @param {string} name Local filename under ../payloads/
- * @param {string} [remoteUrl] Absolute URL (e.g. releases/latest/download/...)
+ * @param {object} [opts]
+ * @param {string} [opts.remoteUrl]
+ * @param {string} [opts.releaseApi]
+ * @param {RegExp} [opts.assetRe]
  * @returns {Promise<Uint8Array>}
  */
-async function loadElfBytes(name, remoteUrl) {
+async function loadElfBytes(name, opts) {
+    opts = opts || {};
+    let remoteUrl = opts.remoteUrl || "";
+    if (opts.releaseApi) {
+        try {
+            remoteUrl = await resolveGithubReleaseElf(
+                opts.releaseApi, opts.assetRe || /\.elf$/i);
+        } catch (error) {
+            flushMark("ELF-RELEASE-MISS", "name=" + clean(name)
+                + "-why=" + clean(error && error.message ? error.message : error));
+        }
+    }
+
     const sources = [];
     if (remoteUrl)
         sources.push({ kind: "remote", url: remoteUrl, cache: "no-cache" });
@@ -566,7 +617,7 @@ async function sendPayloadToElfldr(name, opts) {
     if (!payloadIsListed(name))
         throw new Error("payload is not listed in this menu");
 
-    const bytes = await loadElfBytes(name, opts.remoteUrl || "");
+    const bytes = await loadElfBytes(name, opts);
 
     preparePayloadSender();
     let fd = -1;
@@ -754,8 +805,20 @@ async function sendPayloadInPlace(name, tile, opts) {
         tile.onclick = function (e) {
             if (e && e.preventDefault) e.preventDefault();
             const remote = tile.getAttribute("data-remote") || "";
+            const releaseApi = tile.getAttribute("data-release-api") || "";
+            const assetReRaw = tile.getAttribute("data-asset-re") || "";
+            const opts = {};
+            if (remote) opts.remoteUrl = remote;
+            if (releaseApi) {
+                opts.releaseApi = releaseApi;
+                try {
+                    opts.assetRe = assetReRaw ? new RegExp(assetReRaw, "i") : /\.elf$/i;
+                } catch (err) {
+                    opts.assetRe = /\.elf$/i;
+                }
+            }
             sendPayloadInPlace(tile.getAttribute("data-name"), tile,
-                remote ? { remoteUrl: remote } : undefined);
+                Object.keys(opts).length ? opts : undefined);
             return false;
         };
     }
@@ -814,11 +877,14 @@ async function autoInjectPayloads() {
     }
 
     setStageChip("pldmgr", "on");
-    stage("INJECTING PLDMGR (waiting for :9021)", "");
-    flushMark("PLDMGR-AUTO-START", "name=pldmgr.elf-after-kstuff="
+    stage("INJECTING PLDMGR (GitHub latest, local fallback)", "");
+    flushMark("PLDMGR-AUTO-START", "name=" + PLDMGR_NAME + "-after-kstuff="
         + (kOk ? 1 : 0) + "-connectAttempts=" + PAYLOAD_CONNECT_ATTEMPTS);
-    const ok = await sendPayloadInPlace("pldmgr.elf",
-        pTile || payloadMenuEl.getElementsByTagName("a")[0]);
+    const ok = await sendPayloadInPlace(PLDMGR_NAME,
+        pTile || payloadMenuEl.getElementsByTagName("a")[0], {
+            releaseApi: PLDMGR_RELEASE_API,
+            assetRe: PLDMGR_ASSET_RE
+        });
     if (ok) {
         setReactorState("online");
         setStageChip("pldmgr", "done");
@@ -1911,7 +1977,7 @@ async function main() {
                 forceBtn.onclick = function () {
                     dirtyClear("user-rebooted");
                     location.replace(location.pathname
-                        + "?go=1&auto=1&trigger=netcontrol&payload=1&force=1&v=lite5");
+                        + "?go=1&auto=1&trigger=netcontrol&payload=1&force=1&v=lite6");
                 };
             }
             return;
