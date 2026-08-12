@@ -136,7 +136,7 @@
 <div id="console" hidden></div>
 
 <script src="rop.js"></script>
-<script src="main.js?v=17"></script>
+<script src="main.js?v=18"></script>
 <script>window.offsetsReady = new Promise(function (res, rej) {
     var s = document.querySelector('script[src^="../offsets/"]');
     if (!s) return rej(new Error("offsets script was never injected by main.js"));
@@ -153,18 +153,15 @@
 import { installWindowP, pairStatus } from "./mem.js?v=10";
 import { int64 } from "./int64.js";
 import { BANNED, ERRNO, K, r32, r16, w32, hexBytes, coreList }
-    from "./poops.js?v=16";
+    from "./poops.js?v=17";
 
 let PK = null, makePoopsEngine = null, buildLadder = null;
 
 async function loadPoopsModules() {
-    const lib = await import("./poops.js?v=16");
-
-    await import("./poops.js?v=16");
-    const st = await import("./poops.js?v=16");
+    const lib = await import("./poops.js?v=17");
     PK = lib.PK;
     makePoopsEngine = lib.makePoopsEngine;
-    buildLadder = st.buildLadder;
+    buildLadder = lib.buildLadder;
     flushMark("POOPS-MODULES-LOADED", "deferred-until-after-primitive");
 }
 
@@ -174,7 +171,7 @@ const CLEARLATCH = Q.get("clear") === "1";
 /* Lite host: opening this page without arm params auto-starts JB */
 if (!ARMED && !CLEARLATCH) {
     location.replace(location.pathname
-        + "?go=1&auto=1&trigger=netcontrol&payload=1&v=lite9");
+        + "?go=1&auto=1&trigger=netcontrol&payload=1&v=lite10");
     throw new Error("redirecting to armed URL");
 }
 
@@ -320,7 +317,7 @@ async function softRetryJailbreak(why) {
     params.set("trigger", cfg.trigger || "netcontrol");
     if (cfg.payload) params.set("payload", cfg.payload);
     params.set("retry", String(next));
-    params.set("v", "lite9");
+    params.set("v", "lite10");
     params.set("_", String(Date.now()));
     location.replace(location.pathname + "?" + params.toString());
     return true;
@@ -2080,7 +2077,7 @@ async function main() {
                 forceBtn.onclick = function () {
                     dirtyClear("user-rebooted");
                     location.replace(location.pathname
-                        + "?go=1&auto=1&trigger=netcontrol&payload=1&force=1&v=lite9");
+                        + "?go=1&auto=1&trigger=netcontrol&payload=1&force=1&v=lite10");
                 };
             }
             return;
