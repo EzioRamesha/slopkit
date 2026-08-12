@@ -76,6 +76,7 @@
     <span class="stage-chip" data-chip="rop">ROP</span>
     <span class="stage-chip" data-chip="kernel">Kernel</span>
     <span class="stage-chip" data-chip="elfldr">elfldr</span>
+    <span class="stage-chip" data-chip="kstuff">kstuff</span>
     <span class="stage-chip" data-chip="pldmgr">pldmgr</span>
   </div>
   <div id="badge">ONLINE · PAYLOAD MANAGER</div>
@@ -96,6 +97,9 @@
   </div>
   <div id="payloadMenu">
     <div class="menuTitle">PAYLOADS</div>
+    <a class="payloadTile" href="#" data-name="kstuff-lite.elf" data-key="kstuff"
+       data-remote="https://github.com/EchoStretch/kstuff-lite/releases/latest/download/kstuff.elf"
+       data-state="default"><span>Kstuff Lite</span><span class="meta">auto first</span></a>
     <a class="payloadTile primary" href="#" data-name="pldmgr.elf" data-key="pldmgr"
        data-state="default"><span>Payload Manager</span><span class="meta">auto</span></a>
     <a class="payloadTile" href="#" data-name="ftpsrv-ps5.elf" data-key="ftp"
@@ -109,7 +113,7 @@
     <a class="payloadTile" href="#" data-name="websrv-ps5.elf" data-key="web"
        data-state="default"><span>Web</span><span class="meta">aux</span></a>
   </div>
-  <button type="button" id="retryInject">RETRY PLDMGR INJECT</button>
+  <button type="button" id="retryInject">RETRY AUTO INJECT</button>
   <button type="button" id="forceAfterReboot">I REBOOTED — START JAILBREAK</button>
   <div id="nav"></div>
   <div id="arm" hidden>Not armed. Redirecting…</div>
@@ -155,7 +159,7 @@ const CLEARLATCH = Q.get("clear") === "1";
 /* Lite host: opening this page without arm params auto-starts JB */
 if (!ARMED && !CLEARLATCH) {
     location.replace(location.pathname
-        + "?go=1&auto=1&trigger=netcontrol&payload=1&v=lite3");
+        + "?go=1&auto=1&trigger=netcontrol&payload=1&v=lite4");
     throw new Error("redirecting to armed URL");
 }
 
@@ -430,6 +434,11 @@ const PAYLOAD_CONNECT_ATTEMPTS = 20;
 const PAYLOAD_CONNECT_GAP_MS = 150;
 const PAYLOAD_BUFFER_SIZE = 0x10000;
 const PAYLOAD_MAX_SIZE = 0x400000;
+/** EchoStretch kstuff-lite — always prefer GitHub latest; local mirror is fallback (PS5 CORS). */
+const KSTUFF_LITE_REMOTE =
+    "https://github.com/EchoStretch/kstuff-lite/releases/latest/download/kstuff.elf";
+const KSTUFF_LITE_NAME = "kstuff-lite.elf";
+const AUTO_CHAIN_GAP_MS = 2000;
 let payloadSendStore = null;
 let payloadSockaddrStore = null;
 let payloadSocketOptionStore = null;
@@ -495,7 +504,57 @@ function preparePayloadSender() {
     }
 }
 
-async function sendPayloadToElfldr(name) {
+/**
+ * Load ELF bytes: optional remote URL first (latest release), then same-origin mirror.
+ * GitHub release assets often fail CORS on PS5 — local payloads/kstuff-lite.elf is fallback.
+ * @param {string} name Local filename under ../payloads/
+ * @param {string} [remoteUrl] Absolute URL (e.g. releases/latest/download/...)
+ * @returns {Promise<Uint8Array>}
+ */
+async function loadElfBytes(name, remoteUrl) {
+    const sources = [];
+    if (remoteUrl)
+        sources.push({ kind: "remote", url: remoteUrl, cache: "no-cache" });
+    sources.push({
+        kind: "local",
+        url: "../payloads/" + encodeURIComponent(name),
+        cache: "default"
+    });
+
+    let lastError = null;
+    for (let i = 0; i < sources.length; ++i) {
+        const src = sources[i];
+        try {
+            const response = await fetch(src.url, {
+                cache: src.cache,
+                redirect: "follow",
+                mode: "cors"
+            });
+            if (!response.ok)
+                throw new Error("HTTP " + response.status);
+            const bytes = new Uint8Array(await response.arrayBuffer());
+            if (!bytes.length)
+                throw new Error("empty body");
+            if (bytes.length > PAYLOAD_MAX_SIZE)
+                throw new Error("larger than the 4 MiB limit");
+            if (bytes.length < 4 || bytes[0] !== 0x7f || bytes[1] !== 0x45
+                || bytes[2] !== 0x4c || bytes[3] !== 0x46)
+                throw new Error("not an ELF");
+            flushMark("ELF-FETCH-OK", "name=" + clean(name) + "-kind=" + src.kind
+                + "-bytes=" + bytes.length);
+            return bytes;
+        } catch (error) {
+            lastError = error;
+            flushMark("ELF-FETCH-MISS", "name=" + clean(name) + "-kind=" + src.kind
+                + "-why=" + clean(error && error.message ? error.message : error));
+        }
+    }
+    throw new Error("payload fetch failed for " + name + ": "
+        + (lastError && lastError.message ? lastError.message : "unknown"));
+}
+
+async function sendPayloadToElfldr(name, opts) {
+    opts = opts || {};
     if (!elfldrSpawned)
         throw new Error("ELF loader is not ready");
     if (!P || !chain)
@@ -507,18 +566,7 @@ async function sendPayloadToElfldr(name) {
     if (!payloadIsListed(name))
         throw new Error("payload is not listed in this menu");
 
-    // Allow HTTP cache — re-fetching 2MB+ ELFs every inject burns PS5 WebKit RAM.
-    const response = await fetch("../payloads/" + encodeURIComponent(name));
-    if (!response.ok)
-        throw new Error("payload fetch failed: HTTP " + response.status);
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (!bytes.length)
-        throw new Error("payload is empty");
-    if (bytes.length > PAYLOAD_MAX_SIZE)
-        throw new Error("payload is larger than the 4 MiB limit");
-    if (bytes.length < 4 || bytes[0] !== 0x7f || bytes[1] !== 0x45
-        || bytes[2] !== 0x4c || bytes[3] !== 0x46)
-        throw new Error("payload does not start with the ELF signature");
+    const bytes = await loadElfBytes(name, opts.remoteUrl || "");
 
     preparePayloadSender();
     let fd = -1;
@@ -644,7 +692,8 @@ function payloadTileBaseClass(tile) {
         ? "payloadTile primary" : "payloadTile";
 }
 
-async function sendPayloadInPlace(name, tile) {
+async function sendPayloadInPlace(name, tile, opts) {
+    opts = opts || {};
     if (payloadSenderBlocked) {
         flushMark("ELF-SEND-SKIPPED", "blocked=" + clean(payloadSenderBlocked));
         return false;
@@ -660,7 +709,7 @@ async function sendPayloadInPlace(name, tile) {
     }
     let ok = false;
     try {
-        const result = await sendPayloadToElfldr(name);
+        const result = await sendPayloadToElfldr(name, opts);
         if (tile) {
             tile.className = payloadTileBaseClass(tile);
             setPayloadTileState(tile, "sent");
@@ -704,29 +753,75 @@ async function sendPayloadInPlace(name, tile) {
         const tile = tiles[i];
         tile.onclick = function (e) {
             if (e && e.preventDefault) e.preventDefault();
-            sendPayloadInPlace(tile.getAttribute("data-name"), tile);
+            const remote = tile.getAttribute("data-remote") || "";
+            sendPayloadInPlace(tile.getAttribute("data-name"), tile,
+                remote ? { remoteUrl: remote } : undefined);
             return false;
         };
     }
 }
 
-let pldmgrAutoStarted = false;
-async function autoInjectPldmgr() {
-    if (pldmgrAutoStarted) return;
-    pldmgrAutoStarted = true;
-    const tile = payloadMenuEl.querySelector('[data-name="pldmgr.elf"]');
+let autoInjectStarted = false;
+/**
+ * Auto chain: kstuff-lite (latest) then pldmgr.
+ * @returns {Promise<void>}
+ */
+async function autoInjectPayloads() {
+    if (autoInjectStarted) return;
+    autoInjectStarted = true;
+    const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms));
+    const kTile = payloadMenuEl.querySelector('[data-name="' + KSTUFF_LITE_NAME + '"]');
+    const pTile = payloadMenuEl.querySelector('[data-name="pldmgr.elf"]');
     const retry = document.getElementById("retryInject");
+    const showRetry = (label) => {
+        if (!retry) return;
+        retry.disabled = false;
+        retry.textContent = label || "RETRY AUTO INJECT";
+        retry.className = "on";
+    };
+
     setReactorState("inject");
+    setStageChip("kstuff", "on");
+    stage("INJECTING KSTUFF-LITE (GitHub latest, local fallback)", "");
+    flushMark("KSTUFF-AUTO-START", "remote=1-name=" + KSTUFF_LITE_NAME);
+    const kOk = await sendPayloadInPlace(KSTUFF_LITE_NAME, kTile, {
+        remoteUrl: KSTUFF_LITE_REMOTE
+    });
+    if (!kOk) {
+        setReactorState("inject-fail");
+        setStageChip("kstuff", "fail");
+        if (payloadSenderBlocked) {
+            stageEl.textContent = "KSTUFF BLOCKED — REBOOT REQUIRED";
+            stageEl.className = "bad";
+            if (retry) {
+                retry.className = "";
+                retry.textContent = "REBOOT REQUIRED";
+                retry.disabled = true;
+            }
+            flushMark("KSTUFF-AUTO-BLOCKED", clean(payloadSenderBlocked));
+        } else {
+            stageEl.textContent = "KSTUFF-LITE INJECT FAILED — RETRY OR REBOOT";
+            stageEl.className = "bad";
+            showRetry("RETRY AUTO INJECT");
+            flushMark("KSTUFF-AUTO-FAIL", "name=" + KSTUFF_LITE_NAME);
+        }
+        return;
+    }
+    setStageChip("kstuff", "done");
+    flushMark("KSTUFF-AUTO-OK", "name=" + KSTUFF_LITE_NAME);
+    stage("KSTUFF-LITE OK — waiting " + AUTO_CHAIN_GAP_MS + "ms before PLDMGR", "ok");
+    await sleepMs(AUTO_CHAIN_GAP_MS);
+
     setStageChip("pldmgr", "on");
     stage("INJECTING PLDMGR (waiting for :9021)", "");
     flushMark("PLDMGR-AUTO-START", "name=pldmgr.elf-connectAttempts="
         + PAYLOAD_CONNECT_ATTEMPTS);
     const ok = await sendPayloadInPlace("pldmgr.elf",
-        tile || payloadMenuEl.getElementsByTagName("a")[0]);
+        pTile || payloadMenuEl.getElementsByTagName("a")[0]);
     if (ok) {
         setReactorState("online");
         setStageChip("pldmgr", "done");
-        stageEl.textContent = "PAYLOAD MANAGER ONLINE";
+        stageEl.textContent = "KSTUFF-LITE + PAYLOAD MANAGER ONLINE";
         stageEl.className = "ok";
         syncStageChips("pldmgr online", "ok");
         flushMark("PLDMGR-AUTO-OK", "name=pldmgr.elf");
@@ -747,11 +842,7 @@ async function autoInjectPldmgr() {
         setStageChip("pldmgr", "fail");
         stageEl.textContent = "PLDMGR INJECT FAILED — RETRY OR REBOOT";
         stageEl.className = "bad";
-        if (retry) {
-            retry.disabled = false;
-            retry.textContent = "RETRY PLDMGR INJECT";
-            retry.className = "on";
-        }
+        showRetry("RETRY AUTO INJECT");
         flushMark("PLDMGR-AUTO-FAIL", "name=pldmgr.elf");
     }
 }
@@ -761,7 +852,7 @@ async function autoInjectPldmgr() {
     if (retry) {
         retry.onclick = function () {
             if (payloadSenderBlocked) {
-                stageEl.textContent = "PLDMGR BLOCKED — REBOOT REQUIRED";
+                stageEl.textContent = "INJECT BLOCKED — REBOOT REQUIRED";
                 stageEl.className = "bad";
                 flushMark("PLDMGR-RETRY-DENIED", clean(payloadSenderBlocked));
                 return;
@@ -770,9 +861,9 @@ async function autoInjectPldmgr() {
                 flushMark("PLDMGR-RETRY-BUSY", "sender-still-busy");
                 return;
             }
-            pldmgrAutoStarted = false;
+            autoInjectStarted = false;
             retry.className = "";
-            autoInjectPldmgr();
+            autoInjectPayloads();
         };
     }
     const diag = document.getElementById("dt");
@@ -827,6 +918,10 @@ function syncStageChips(text, cls) {
         setStageChip("rop", "done");
         setStageChip("kernel", "done");
         setStageChip("elfldr", cls === "bad" ? "fail" : "on");
+    }
+    if (/kstuff/.test(t)) {
+        setStageChip("elfldr", "done");
+        setStageChip("kstuff", cls === "bad" ? "fail" : (cls === "ok" ? "done" : "on"));
     }
     if (/pldmgr|payload manager|inject/.test(t)) {
         setStageChip("elfldr", "done");
@@ -1605,7 +1700,7 @@ async function runLadder() {
     }));
 
     if (payloadSuccess)
-        stage("ELF LOADER READY -- auto-injecting Payload Manager", "ok");
+        stage("ELF LOADER READY -- auto-injecting Kstuff Lite then Payload Manager", "ok");
     else if (fullSuccess)
         stage("SUCCESS -- " + passed + " PASS / 0 FAIL", "ok");
     else if (mustReboot)
@@ -1621,7 +1716,7 @@ async function runLadder() {
         flushMark("ELFLDR-MENU-INPAGE",
             "no-navigation-parked-racers-and-fds-remain-owned-port=9021");
         showPayloadMenu();
-        autoInjectPldmgr();
+        autoInjectPayloads();
     } else if (mustReboot && (failed > 0 || aborted || (engine && engine.triggered))) {
         // Kernel may be dirty even without elfldr — block blind re-JB after browser close.
         dirtySet("reboot-required");
@@ -1812,7 +1907,7 @@ async function main() {
                 forceBtn.onclick = function () {
                     dirtyClear("user-rebooted");
                     location.replace(location.pathname
-                        + "?go=1&auto=1&trigger=netcontrol&payload=1&force=1&v=lite3");
+                        + "?go=1&auto=1&trigger=netcontrol&payload=1&force=1&v=lite4");
                 };
             }
             return;
