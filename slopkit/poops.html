@@ -124,9 +124,10 @@
   <div id="nav"></div>
   <div id="arm" hidden>Not armed. Redirecting…</div>
   <footer id="credits">
-    <div class="by">Host by <strong>Ramesh</strong> · EzioRamesha</div>
+    <div class="by">Developed by <strong>Ramesh</strong> · EzioRamesha</div>
     Credits: <a href="https://github.com/jordyidk/slopkit" target="_blank" rel="noopener">jordyidk/slopkit</a>
     · original research: Egy, Sonic, Yenyen, Zeco, Gezine, EchoStretch, Ufm42, TheFloW, John Tornblom, Flatz, PS5 R&amp;D Discord
+    · lite host &amp; tooling: <strong>Ramesh</strong>
     · <a href="https://github.com/EchoStretch/kstuff-lite" target="_blank" rel="noopener">EchoStretch/kstuff-lite</a>
     · <a href="https://github.com/itsPLK/ps5-payload-manager" target="_blank" rel="noopener">itsPLK/ps5-payload-manager</a>
     · <a href="https://github.com/sleirsgoevy" target="_blank" rel="noopener">sleirsgoevy</a>
@@ -173,7 +174,7 @@ const CLEARLATCH = Q.get("clear") === "1";
 /* Lite host: opening this page without arm params auto-starts JB */
 if (!ARMED && !CLEARLATCH) {
     location.replace(location.pathname
-        + "?go=1&auto=1&trigger=netcontrol&payload=1&v=lite7");
+        + "?go=1&auto=1&trigger=netcontrol&payload=1&v=lite8");
     throw new Error("redirecting to armed URL");
 }
 
@@ -187,12 +188,16 @@ const CORE_OVERRIDE = Q.has("core") ? parseInt(Q.get("core"), 10) : -1;
 let continueMode = Q.get("continue") === "1";
 /** After a real console reboot, user can ?force=1 to clear dirty-boot and re-JB. */
 const FORCE = Q.get("force") === "1";
+const URL_RETRY_N = Math.max(0, parseInt(Q.get("retry") || "0", 10) || 0);
 
 const PROGRESS_KEY = "slopkit-poops:next";
 const RUNLOG_KEY = "slopkit-poops:last";
+const RETRY_KEY = "slopkit-poops:auto-retry";
 /** Survives browser close (unlike sessionStorage). Cleared by ?force=1 / ?clear=1. */
 const DIRTY_KEY = "slopkit-poops:dirty-boot";
 const REV = "slopkit-poops-28-clean-success-menu";
+const MAX_SOFT_RETRIES = 3;
+const SOFT_RETRY_DELAY_MS = 1600;
 
 function storeGet(k) {
     try { return sessionStorage.getItem(k) || ""; } catch { return ""; }
@@ -242,6 +247,83 @@ function dirtyClear(why) {
         if (typeof flushMark === "function")
             flushMark("DIRTY-CLEAR", String(why || "").slice(0, 80));
     } catch { }
+}
+
+function getSoftRetryCount() {
+    const fromStore = parseInt(storeGet(RETRY_KEY) || "0", 10) || 0;
+    return Math.max(fromStore, URL_RETRY_N);
+}
+function setSoftRetryCount(n) {
+    storeSet(RETRY_KEY, String(Math.max(0, n | 0)));
+}
+function clearSoftRetryCount() {
+    storeDel(RETRY_KEY);
+}
+
+/** Drop UI / early-log buffers to ease WebKit memory before a hard refresh. */
+function purgePageMemory() {
+    try {
+        if (window.__jbEarly && window.__jbEarly.length)
+            window.__jbEarly.length = 0;
+    } catch { }
+    try {
+        const early = document.getElementById("early");
+        const scr = document.getElementById("scr");
+        const rows = document.getElementById("rows");
+        const summary = document.getElementById("summary");
+        const cfg = document.getElementById("cfg");
+        const vitals = document.getElementById("vitals");
+        if (early) early.textContent = "";
+        if (scr) scr.textContent = "";
+        if (rows) rows.innerHTML = "";
+        if (summary) summary.textContent = "";
+        if (cfg) cfg.textContent = "";
+        if (vitals) vitals.textContent = "";
+    } catch { }
+    try {
+        if (typeof window.gc === "function") window.gc();
+    } catch { }
+}
+
+/**
+ * Soft JB fail: clear session latch/progress, purge memory, hard-refresh and re-arm.
+ * Never used when kernel is dirty / reboot required (that would KP).
+ * @param {string} why
+ * @returns {Promise<boolean>} true if a retry was scheduled
+ */
+async function softRetryJailbreak(why) {
+    if (!AUTOCLEAR) return false;
+    if (continueMode || FORCE) return false;
+    if (DIRTY && DIRTY.elfldr && DIRTY.reason === "reboot-required") return false;
+
+    const n = getSoftRetryCount();
+    if (n >= MAX_SOFT_RETRIES) {
+        stage("JB failed after " + MAX_SOFT_RETRIES
+            + " auto-retries — stop and reboot if needed", "bad");
+        flushMark("AUTO-RETRY-EXHAUSTED", "n=" + n + "-why=" + clean(why));
+        return false;
+    }
+    const next = n + 1;
+    setSoftRetryCount(next);
+    try { await latch.clear(); } catch { }
+    storeDel(PROGRESS_KEY);
+    storeDel(RUNLOG_KEY);
+    purgePageMemory();
+    stage("JB failed — clearing memory & hard refresh (retry "
+        + next + "/" + MAX_SOFT_RETRIES + ")", "bad");
+    flushMark("AUTO-RETRY", "n=" + next + "-of-" + MAX_SOFT_RETRIES
+        + "-why=" + clean(why));
+    await new Promise((r) => setTimeout(r, SOFT_RETRY_DELAY_MS));
+    const params = new URLSearchParams();
+    params.set("go", "1");
+    params.set("auto", "1");
+    params.set("trigger", cfg.trigger || "netcontrol");
+    if (cfg.payload) params.set("payload", cfg.payload);
+    params.set("retry", String(next));
+    params.set("v", "lite8");
+    params.set("_", String(Date.now()));
+    location.replace(location.pathname + "?" + params.toString());
+    return true;
 }
 const STALLED_AT = storeGet(PROGRESS_KEY);
 const LAST_RUN = storeJson(RUNLOG_KEY);
@@ -1794,6 +1876,7 @@ async function runLadder() {
             + passed + " PASS", "ok");
 
     if (payloadSuccess) {
+        clearSoftRetryCount();
         dirtySet("payload-success");
         flushMark("ELFLDR-MENU-INPAGE",
             "no-navigation-parked-racers-and-fds-remain-owned-port=9021");
@@ -1802,6 +1885,13 @@ async function runLadder() {
     } else if (mustReboot && (failed > 0 || aborted || (engine && engine.triggered))) {
         // Kernel may be dirty even without elfldr — block blind re-JB after browser close.
         dirtySet("reboot-required");
+        flushMark("AUTO-RETRY-SKIP", "must-reboot=1");
+    } else if (!fullSuccess && !mustReboot && (failed > 0 || aborted || chainDead)) {
+        // Soft fail: state put back — clear memory and hard-refresh to try again.
+        await softRetryJailbreak("ladder-soft-fail-pass=" + passed
+            + "-fail=" + failed + "-aborted=" + (aborted || "no"));
+    } else if (fullSuccess) {
+        clearSoftRetryCount();
     }
 }
 
@@ -1970,6 +2060,7 @@ async function main() {
             elfldrSpawned = true;
             continueMode = true;
             dirtySet("elfldr-probe");
+            clearSoftRetryCount();
             stage("ALREADY JAILBROKEN — elfldr live — payload menu only (no re-JB)", "ok");
             flushMark("CONTINUE-OK", "elfldr-up=1");
             showPayloadMenu();
@@ -1989,7 +2080,7 @@ async function main() {
                 forceBtn.onclick = function () {
                     dirtyClear("user-rebooted");
                     location.replace(location.pathname
-                        + "?go=1&auto=1&trigger=netcontrol&payload=1&force=1&v=lite7");
+                        + "?go=1&auto=1&trigger=netcontrol&payload=1&force=1&v=lite8");
                 };
             }
             return;
@@ -2199,12 +2290,18 @@ function lastRunText() {
     }
 
     renderNav("", false);
-    main().catch(err => {
+    if (URL_RETRY_N > 0) {
+        stage("auto-retry " + URL_RETRY_N + "/" + MAX_SOFT_RETRIES
+            + " — starting jailbreak again", "");
+        flushMark("AUTO-RETRY-BOOT", "n=" + URL_RETRY_N);
+    }
+    main().catch(async (err) => {
         const m = (err && err.message) || String(err);
         stage("boot failed: " + m, "bad");
         flushMark("POOPS-FAILED", (err && err.name) + ":" + m.slice(0, 160));
         runInFlight = false;
         lockNav(false);
+        await softRetryJailbreak("boot-failed:" + m.slice(0, 80));
     });
 })();
 </script>
